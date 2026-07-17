@@ -23,12 +23,27 @@ struct ResultView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 24))
                     .overlay(alignment: .topLeading) {
                         if let mode = engine.mode {
-                            Label(mode.title, systemImage: mode.systemImage)
-                                .font(.caption.bold())
-                                .padding(.horizontal, 12).padding(.vertical, 6)
-                                .background(.black.opacity(0.55), in: Capsule())
-                                .padding(12)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(mode.theme.scene)
+                                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                                    .tracking(2)
+                                    .foregroundStyle(mode.theme.primary)
+                                Label(mode.title, systemImage: mode.systemImage)
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.white)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+                            .padding(12)
                         }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        Text("● LIVE")
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(.black.opacity(0.6), in: Capsule())
+                            .padding(12)
                     }
             }
 
@@ -38,7 +53,7 @@ struct ResultView: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(background.ignoresSafeArea())
+        .background(resultBackdrop)
         .navigationTitle("Your Roast")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -85,13 +100,20 @@ struct ResultView: View {
     private var readyView: some View {
         VStack(spacing: 20) {
             ScrollView {
-                Text(engine.script.isEmpty ? "…" : engine.script)
-                    .font(.title3)
+                Text(engine.script.isEmpty ? "…" : "“\(engine.script)”")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .multilineTextAlignment(.center)
-                    .padding()
+                    .lineSpacing(4)
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 4)
+                    .padding(24)
             }
-            .frame(maxHeight: 200)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .frame(maxHeight: 260)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke((engine.mode?.theme.primary ?? .orange).opacity(0.6), lineWidth: 1.5)
+            )
 
             HStack(spacing: 18) {
                 Button {
@@ -152,10 +174,17 @@ struct ResultView: View {
         return items
     }
 
-    private var background: LinearGradient {
-        LinearGradient(
-            colors: [.black, (engine.mode?.tint ?? .orange).opacity(0.25), .black],
-            startPoint: .top, endPoint: .bottom
-        )
+    @ViewBuilder
+    private var resultBackdrop: some View {
+        ZStack {
+            if let mode = engine.mode {
+                ThematicBackdrop(theme: mode.theme)
+                LinearGradient(colors: [.black.opacity(0.55), .black.opacity(0.85)],
+                               startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+            } else {
+                Color.black.ignoresSafeArea()
+            }
+        }
     }
 }

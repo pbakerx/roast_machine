@@ -2,7 +2,9 @@
 //  HomeView.swift
 //  RoastMachine
 //
-//  Pick/snap a photo, choose a mode, hit the button.
+//  The Stage. Camera-first: your face fills the screen inside a themed
+//  positioning guide, and a tactile mechanical panel drives the machine.
+//  "Choose a photo" is a small subset of the live experience.
 //
 
 import SwiftUI
@@ -11,221 +13,239 @@ import PhotosUI
 struct HomeView: View {
     @EnvironmentObject private var engine: RoastEngine
     @EnvironmentObject private var store: StoreManager
+    @StateObject private var camera = CameraController()
 
-    @State private var pickedImage: UIImage?
+    @State private var selectedID = RoastMode.free[0].id
+    @State private var libraryImage: UIImage?
     @State private var photoItem: PhotosPickerItem?
-    @State private var showLivePortrait = false
-    @State private var selectedMode: RoastMode = RoastMode.free[0]
     @State private var showPaywall = false
 
-    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    private var selectedMode: RoastMode {
+        RoastMode.all.first { $0.id == selectedID } ?? RoastMode.free[0]
+    }
+    private var theme: ModeTheme { selectedMode.theme }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                header
-                photoArea
-                modeSection
-                goButton
-                Color.clear.frame(height: 20)
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            cameraLayer
+            vignette
+            SceneScrim(theme: theme)
+
+            if libraryImage == nil {
+                FaceGuideOverlay(theme: theme)
             }
-            .padding(.horizontal)
-        }
-        .background(backgroundGradient.ignoresSafeArea())
-        .navigationTitle("Roast Machine")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showPaywall = true
-                } label: {
-                    Image(systemName: "crown.fill").foregroundStyle(.yellow)
-                }
+
+            VStack(spacing: 0) {
+                topBar
+                Spacer()
+                controlPanel
             }
         }
-        .fullScreenCover(isPresented: $showLivePortrait) {
-            LivePortraitView { image in pickedImage = image }
-        }
-        .sheet(isPresented: $showPaywall) {
-            PaywallView().environmentObject(store)
-        }
-        .onChange(of: photoItem) { _, newItem in
-            guard let newItem else { return }
+        .animation(.easeInOut(duration: 0.4), value: selectedID)
+        .onAppear { camera.start() }
+        .onDisappear { camera.stop() }
+        .sheet(isPresented: $showPaywall) { PaywallView().environmentObject(store) }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
             Task {
-                if let data = try? await newItem.loadTransferable(type: Data.self),
+                if let data = try? await item.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
-                    pickedImage = image
+                    libraryImage = image
                 }
             }
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Camera / image layer
 
-    private var header: some View {
-        VStack(spacing: 6) {
-            Text("Feed it a face.")
-                .font(.largeTitle.bold())
-            Text("Get roasted out loud in seconds.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    @ViewBuilder
+    private var cameraLayer: some View {
+        if let image = libraryImage {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+        } else {
+            switch camera.status {
+            case .ready:
+                CameraPreview(session: camera.session).ignoresSafeArea()
+            case .denied, .unavailable:
+                ZStack {
+                    ThematicBackdrop(theme: theme)
+                    VStack(spacing: 10) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text(camera.status == .denied ? "Camera access is off" : "No camera here")
+                            .font(.headline).foregroundStyle(.white)
+                        Text("Enable it in Settings, or tap the photo button below.")
+                            .font(.caption).foregroundStyle(.white.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(40)
+                    .offset(y: -60)
+                }
+            case .unconfigured:
+                ZStack {
+                    ThematicBackdrop(theme: theme)
+                    ProgressView().tint(.white)
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var vignette: some View {
+        RadialGradient(
+            colors: [.clear, .clear, .black.opacity(0.55)],
+            center: .init(x: 0.5, y: 0.4), startRadius: 120, endRadius: 520
+        )
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Top bar
+
+    private var topBar: some View {
+        HStack {
+            HStack(spacing: 6) {
+                Image(systemName: "flame.fill").foregroundStyle(theme.primary)
+                Text("ROAST MACHINE")
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .tracking(2)
+                    .foregroundStyle(.white)
+            }
+            Spacer()
+            Button { showPaywall = true } label: {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.yellow)
+                    .padding(10)
+                    .background(.black.opacity(0.35), in: Circle())
+            }
+        }
+        .padding(.horizontal, 20)
         .padding(.top, 8)
     }
 
-    private var photoArea: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 24)
-                .fill(.ultraThinMaterial)
-                .frame(height: 300)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24)
-                        .strokeBorder(.white.opacity(0.15), lineWidth: 1)
-                )
+    // MARK: - Mechanical control panel
 
-            if let image = pickedImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 24))
-            } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "camera.viewfinder")
-                        .font(.system(size: 44))
-                        .foregroundStyle(.secondary)
+    private var controlPanel: some View {
+        ZStack(alignment: .top) {
+            MetalPanel()
+                .frame(height: 270)
 
-                    Button {
-                        showLivePortrait = true
-                    } label: {
-                        Label("Live Portrait", systemImage: "camera.viewfinder")
-                            .font(.subheadline.bold())
-                            .padding(.horizontal, 22).padding(.vertical, 12)
-                            .background(selectedMode.tint, in: Capsule())
-                            .foregroundStyle(.white)
-                    }
-
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        Label("Choose from Library", systemImage: "photo")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 16).padding(.vertical, 10)
-                            .background(.white.opacity(0.12), in: Capsule())
-                    }
-                }
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if pickedImage != nil {
-                HStack(spacing: 10) {
-                    Button {
-                        showLivePortrait = true
-                    } label: {
-                        Image(systemName: "camera.viewfinder")
-                            .padding(10)
-                            .background(.black.opacity(0.5), in: Circle())
-                            .foregroundStyle(.white)
-                    }
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        Image(systemName: "photo.on.rectangle")
-                            .padding(10)
-                            .background(.black.opacity(0.5), in: Circle())
-                            .foregroundStyle(.white)
-                    }
-                }
-                .padding(12)
-            }
-        }
-    }
-
-    private var modeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Pick a mode")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(RoastMode.all) { mode in
-                    ModeCard(
-                        mode: mode,
-                        isSelected: selectedMode == mode,
-                        isLocked: mode.isPremium && !store.hasAllModes
-                    ) {
+            VStack(spacing: 12) {
+                sceneLabel
+                ModeDial(
+                    modes: RoastMode.all,
+                    selectedID: $selectedID,
+                    isLocked: { $0.isPremium && !store.hasAllModes },
+                    onSelect: { mode in
                         if mode.isPremium && !store.hasAllModes {
                             showPaywall = true
                         } else {
-                            selectedMode = mode
+                            selectedID = mode.id
                         }
                     }
-                }
+                )
+                actionRow
+            }
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 6)
+    }
+
+    private var sceneLabel: some View {
+        VStack(spacing: 2) {
+            Text(theme.scene)
+                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .tracking(3)
+                .foregroundStyle(theme.primary)
+            Text(selectedMode.title)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+        }
+    }
+
+    private var actionRow: some View {
+        HStack {
+            libraryButton
+                .frame(width: 64)
+            Spacer()
+            ShutterButton(tint: theme.primary) { capture() }
+            Spacer()
+            flipButton
+                .frame(width: 64)
+        }
+        .padding(.horizontal, 30)
+    }
+
+    @ViewBuilder
+    private var libraryButton: some View {
+        if libraryImage != nil {
+            Button {
+                Haptics.tap()
+                libraryImage = nil
+                photoItem = nil
+            } label: {
+                controlChip(system: "camera.viewfinder", caption: "Live")
+            }
+            .buttonStyle(.plain)
+        } else {
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                controlChip(system: "photo.on.rectangle", caption: "Photo")
             }
         }
     }
 
-    private var goButton: some View {
-        Button {
-            guard let image = pickedImage else { return }
-            let mode = selectedMode
-            Task { await engine.run(image: image, mode: mode) }
-        } label: {
-            Label("Roast me", systemImage: "flame.fill")
-                .font(.title3.bold())
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(selectedMode.tint)
-        .disabled(pickedImage == nil)
-        .opacity(pickedImage == nil ? 0.5 : 1)
-    }
-
-    private var backgroundGradient: LinearGradient {
-        LinearGradient(
-            colors: [.black, selectedMode.tint.opacity(0.25), .black],
-            startPoint: .top, endPoint: .bottom
-        )
-    }
-}
-
-// MARK: - Mode card
-
-struct ModeCard: View {
-    let mode: RoastMode
-    let isSelected: Bool
-    let isLocked: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: mode.systemImage)
-                        .font(.title2)
-                        .foregroundStyle(mode.tint)
-                    Spacer()
-                    if isLocked {
-                        Image(systemName: "lock.fill")
-                            .font(.caption)
-                            .foregroundStyle(.yellow)
-                    }
-                }
-                Text(mode.title)
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.primary)
-                Text(mode.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+    @ViewBuilder
+    private var flipButton: some View {
+        if libraryImage == nil && camera.status == .ready {
+            Button {
+                Haptics.tap()
+                camera.flip()
+            } label: {
+                controlChip(system: "arrow.triangle.2.circlepath.camera", caption: "Flip")
             }
-            .frame(maxWidth: .infinity, minHeight: 100, alignment: .leading)
-            .padding(14)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .strokeBorder(isSelected ? mode.tint : .white.opacity(0.08),
-                                  lineWidth: isSelected ? 2 : 1)
-            )
+            .buttonStyle(.plain)
+        } else {
+            Color.clear.frame(width: 52, height: 52)
         }
-        .buttonStyle(.plain)
+    }
+
+    private func controlChip(system: String, caption: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: system)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Color(white: 0.85))
+                .frame(width: 50, height: 50)
+                .background(Metal.knob(.gray), in: Circle())
+                .overlay(Circle().stroke(.black.opacity(0.6), lineWidth: 1))
+            Text(caption)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.7))
+        }
+    }
+
+    // MARK: - Actions
+
+    private func capture() {
+        if let image = libraryImage {
+            run(image)
+            return
+        }
+        camera.capture { image in
+            guard let image else { return }
+            run(image)
+        }
+    }
+
+    private func run(_ image: UIImage) {
+        let mode = selectedMode
+        Task { await engine.run(image: image, mode: mode) }
     }
 }
