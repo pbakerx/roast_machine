@@ -1,0 +1,19 @@
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.hmap
+
+# Secrets - NEVER commit API keys
+Secrets.xcconfig
+.env
+*.env
+
+# macOS
+.DS_Store
+
+# App packaging
+*.ipa
+*.xcarchive
