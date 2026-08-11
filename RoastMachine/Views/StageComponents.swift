@@ -135,24 +135,17 @@ struct ModeDial: View {
     @Binding var selectedID: String
     var isLocked: (RoastMode) -> Bool
     var onSelect: (RoastMode) -> Void
+    /// Speaks a short sample in the mode's voice. Nil hides the preview buttons.
+    var onPreview: ((RoastMode) -> Void)? = nil
+    var previewingID: String? = nil
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(modes) { mode in
-                        Button {
-                            Haptics.tap(.medium)
-                            onSelect(mode)
-                            withAnimation { proxy.scrollTo(mode.id, anchor: .center) }
-                        } label: {
-                            ModeKnob(symbol: mode.systemImage,
-                                     tint: mode.theme.primary,
-                                     selected: mode.id == selectedID,
-                                     locked: isLocked(mode))
-                        }
-                        .buttonStyle(.plain)
-                        .id(mode.id)
+                        knobCell(mode, proxy: proxy)
+                            .id(mode.id)
                     }
                 }
                 .padding(.horizontal, 40)
@@ -160,6 +153,46 @@ struct ModeDial: View {
             }
             .onAppear {
                 proxy.scrollTo(selectedID, anchor: .center)
+            }
+        }
+    }
+
+    private func knobCell(_ mode: RoastMode, proxy: ScrollViewProxy) -> some View {
+        Button {
+            Haptics.tap(.medium)
+            onSelect(mode)
+            withAnimation { proxy.scrollTo(mode.id, anchor: .center) }
+        } label: {
+            ModeKnob(symbol: mode.systemImage,
+                     tint: mode.theme.primary,
+                     selected: mode.id == selectedID,
+                     locked: isLocked(mode))
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottomTrailing) {
+            if let onPreview {
+                Button {
+                    Haptics.tap()
+                    onPreview(mode)
+                } label: {
+                    Group {
+                        if previewingID == mode.id {
+                            ProgressView()
+                                .controlSize(.mini)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .frame(width: 20, height: 20)
+                    .background(mode.theme.primary.opacity(0.9), in: Circle())
+                    .overlay(Circle().stroke(.black.opacity(0.5), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .offset(x: 4, y: 4)
+                .disabled(previewingID != nil)
             }
         }
     }

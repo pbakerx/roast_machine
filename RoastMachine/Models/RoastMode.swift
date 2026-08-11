@@ -45,6 +45,27 @@ extension RoastMode {
         RoastMode.sharedPreamble + "\n\nPERSONA:\n" + personaPrompt
     }
 
+    /// A 3–4 word taste of the persona, spoken by the voice-preview button.
+    var previewLine: String {
+        switch id {
+        case "classic":     return "Look at this guy!"
+        case "nature":      return "Remarkable. Truly remarkable."
+        case "ramsay":      return "It's RAW!!"
+        case "mom":         return "I'm not mad."
+        case "shakespeare": return "Thou art absurd!"
+        case "disstrack":   return "Yo, check it."
+        case "beautiful":   return "You look INCREDIBLE!"
+        case "fortune":     return "I see... trouble."
+        case "drill":       return "Drop and give twenty!"
+        case "linkedin":    return "Thrilled to announce..."
+        case "conspiracy":  return "Wake up, sheeple!"
+        case "pickup":      return "Hey there, gorgeous."
+        case "datingbio":   return "Swipe right. Obviously."
+        case "pet":         return "Feed me, human."
+        default:            return "Get roasted!"
+        }
+    }
+
     // MARK: - Catalog
 
     static let all: [RoastMode] = [free + premium].flatMap { $0 }

@@ -79,6 +79,36 @@ final class VoiceService: NSObject, ObservableObject {
         progressTimer?.invalidate()
     }
 
+    // MARK: - Voice preview
+
+    /// Mode id currently synthesizing/speaking its preview line, for UI spinners.
+    @Published var previewingModeID: String?
+
+    /// Speaks the mode's short preview line, caching the clip on disk so each
+    /// voice only costs one ElevenLabs call ever.
+    func preview(_ mode: RoastMode) async {
+        if previewingModeID != nil { return }
+        previewingModeID = mode.id
+        defer { previewingModeID = nil }
+
+        let cacheURL = FileManager.default
+            .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("preview_\(mode.voiceID).mp3")
+
+        do {
+            let data: Data
+            if let cached = try? Data(contentsOf: cacheURL), !cached.isEmpty {
+                data = cached
+            } else {
+                data = try await synthesize(text: mode.previewLine, voiceID: mode.voiceID)
+                try? data.write(to: cacheURL)
+            }
+            play(data)
+        } catch {
+            // Preview is a nicety — fail silently rather than interrupt the Stage.
+        }
+    }
+
     private func startProgressTimer() {
         progressTimer?.invalidate()
         progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in

@@ -177,7 +177,12 @@ struct HomeView: View {
                         } else {
                             showPaywall = true
                         }
-                    }
+                    },
+                    // Audition any voice — locked ones too; it sells the unlock.
+                    onPreview: { mode in
+                        Task { await engine.voice.preview(mode) }
+                    },
+                    previewingID: engine.voice.previewingModeID
                 )
                 actionRow
             }
