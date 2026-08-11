@@ -5,6 +5,7 @@
 //  Orchestrates the pipeline: image + mode -> OpenAI script -> ElevenLabs audio.
 //
 
+import Combine
 import UIKit
 
 @MainActor
@@ -27,6 +28,17 @@ final class RoastEngine: ObservableObject {
     let voice = VoiceService()
     let art = RoastArtService()
     private let scripts = RoastScriptService()
+    private var forwarders: [AnyCancellable] = []
+
+    init() {
+        // Nested ObservableObjects don't propagate through @EnvironmentObject —
+        // views observing the engine would never re-render for playback progress
+        // or arriving art. Forward their change notifications through ours.
+        forwarders = [
+            voice.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() },
+            art.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        ]
+    }
 
     var isBusy: Bool {
         switch phase {
