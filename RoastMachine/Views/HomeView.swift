@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var libraryImage: UIImage?
     @State private var photoItem: PhotosPickerItem?
     @State private var showPaywall = false
+    /// A locked mode the user tapped while a free premium roast is on offer.
+    @State private var giftMode: RoastMode?
 
     private var selectedMode: RoastMode {
         RoastMode.all.first { $0.id == selectedID } ?? RoastMode.free[0]
@@ -40,6 +42,9 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 topBar
                 Spacer()
+                if store.freeRoastAvailable {
+                    giftBanner
+                }
                 controlPanel
             }
         }
@@ -47,6 +52,20 @@ struct HomeView: View {
         .onAppear { camera.start() }
         .onDisappear { camera.stop() }
         .sheet(isPresented: $showPaywall) { PaywallView().environmentObject(store) }
+        .alert(
+            "🎁 One on the house!",
+            isPresented: Binding(get: { giftMode != nil }, set: { if !$0 { giftMode = nil } }),
+            presenting: giftMode
+        ) { mode in
+            Button("Roast me, \(mode.title)!") {
+                store.acceptFreeRoast(for: mode)
+                selectedID = mode.id
+            }
+            Button("Unlock everything instead") { showPaywall = true }
+            Button("Maybe later", role: .cancel) {}
+        } message: { mode in
+            Text("Try \(mode.title) free — one roast, no charge. If it stings good, the whole machine is $1.99.")
+        }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task {
@@ -141,12 +160,14 @@ struct HomeView: View {
                 ModeDial(
                     modes: RoastMode.all,
                     selectedID: $selectedID,
-                    isLocked: { $0.isPremium && !store.hasAllModes },
+                    isLocked: { !store.isUnlocked($0) },
                     onSelect: { mode in
-                        if mode.isPremium && !store.hasAllModes {
-                            showPaywall = true
-                        } else {
+                        if store.isUnlocked(mode) {
                             selectedID = mode.id
+                        } else if store.freeRoastAvailable {
+                            giftMode = mode
+                        } else {
+                            showPaywall = true
                         }
                     }
                 )
@@ -157,6 +178,24 @@ struct HomeView: View {
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
+    }
+
+    /// Dangles the occasional free premium roast over the control panel.
+    private var giftBanner: some View {
+        HStack(spacing: 8) {
+            Text("🎁")
+            Text("FREE PREMIUM ROAST — TAP A LOCKED KNOB")
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(1)
+        }
+        .foregroundStyle(.black)
+        .padding(.horizontal, 14).padding(.vertical, 8)
+        .background(
+            LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing),
+            in: Capsule()
+        )
+        .shadow(color: .orange.opacity(0.7), radius: 10)
+        .padding(.bottom, 8)
     }
 
     private var sceneLabel: some View {
@@ -246,6 +285,10 @@ struct HomeView: View {
 
     private func run(_ image: UIImage) {
         let mode = selectedMode
+        // A gifted premium roast is single-use: burn it the moment it fires.
+        if mode.isPremium && !store.hasAllModes && store.trialUnlockedModeID == mode.id {
+            store.consumeFreeRoast()
+        }
         Task { await engine.run(image: image, mode: mode) }
     }
 }

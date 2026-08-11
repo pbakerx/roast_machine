@@ -49,6 +49,8 @@ extension RoastMode {
 
     static let all: [RoastMode] = [free + premium].flatMap { $0 }
 
+    /// Free tier: the headliner act only. Everything else is behind the
+    /// one-time "all modes" unlock.
     static let free: [RoastMode] = [
         RoastMode(
             id: "classic",
@@ -62,14 +64,17 @@ extension RoastMode {
             You are a sharp late-night stand-up comedian delivering a friendly roast. \
             Confident, quick, crowd-working energy. Land a couple of clean burns and a callback.
             """
-        ),
+        )
+    ]
+
+    static let premium: [RoastMode] = [
         RoastMode(
             id: "nature",
             title: "Nature Documentary",
             subtitle: "Narrated in the wild",
             systemImage: "leaf.fill",
             tint: .green,
-            isPremium: false,
+            isPremium: true,
             voiceID: "JBFqnCBsd6RMkjVDRZzb", // George (British)
             personaPrompt: """
             You are a hushed, awe-struck British nature-documentary narrator observing a rare \
@@ -77,10 +82,7 @@ extension RoastMode {
             behaviour. Gentle, witty, affectionate mockery. Use phrases like "here we see" and \
             "remarkably".
             """
-        )
-    ]
-
-    static let premium: [RoastMode] = [
+        ),
         RoastMode(
             id: "ramsay",
             title: "Angry Chef",

@@ -2,7 +2,7 @@
 //  PaywallView.swift
 //  RoastMachine
 //
-//  Small à-la-carte unlocks (freemium). No subscriptions.
+//  One flashy $1.99 unlock for the whole machine. No subscriptions.
 //
 
 import SwiftUI
@@ -11,45 +11,46 @@ import StoreKit
 struct PaywallView: View {
     @EnvironmentObject private var store: StoreManager
     @Environment(\.dismiss) private var dismiss
+    @State private var flamePulse = false
+
+    private var allModesProduct: Product? {
+        store.product(for: StoreManager.ProductID.allModes)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 22) {
                     header
+                    modeGrid
 
-                    ForEach(store.products, id: \.id) { product in
-                        productRow(product)
-                    }
-
-                    if store.products.isEmpty {
-                        if store.isLoadingProducts || !store.didAttemptLoad {
-                            ProgressView("Loading store…")
-                                .padding(.top, 40)
-                        } else {
-                            emptyState
-                        }
+                    if let product = allModesProduct {
+                        buyButton(product)
+                    } else if store.isLoadingProducts || !store.didAttemptLoad {
+                        ProgressView("Loading store…")
+                            .padding(.top, 30)
+                    } else {
+                        emptyState
                     }
 
                     Button("Restore Purchases") {
                         Task { await store.restore() }
                     }
                     .font(.subheadline)
-                    .padding(.top, 8)
+                    .tint(.white.opacity(0.8))
 
-                    Text("Classic Roast and Nature Documentary are always free. Unlocks are one-time purchases, not subscriptions.")
+                    Text("Classic Roast is free forever. This is a one-time unlock — not a subscription, no nonsense.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 4)
                 }
                 .padding()
             }
             .background(
-                LinearGradient(colors: [.black, .orange.opacity(0.2), .black],
+                LinearGradient(colors: [.black, Color(red: 0.35, green: 0.08, blue: 0.02), .black],
                                startPoint: .top, endPoint: .bottom).ignoresSafeArea()
             )
-            .navigationTitle("Unlock More")
+            .navigationTitle("Unlock the Machine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -65,6 +66,88 @@ struct PaywallView: View {
                 Button("OK") { store.lastError = nil }
             } message: {
                 Text(store.lastError ?? "")
+            }
+            .onAppear { flamePulse = true }
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(
+                    LinearGradient(colors: [.yellow, .orange, .red],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+                .shadow(color: .orange.opacity(0.8), radius: flamePulse ? 26 : 10)
+                .scaleEffect(flamePulse ? 1.06 : 0.96)
+                .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: flamePulse)
+
+            Text("THE WHOLE MACHINE")
+                .font(.system(size: 26, weight: .black, design: .rounded))
+                .tracking(1)
+            Text("Every persona. Every voice. Every scene.\nTwo bucks. Forever.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 8)
+    }
+
+    /// Every locked persona, shown off like a lineup poster.
+    private var modeGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
+            ForEach(RoastMode.premium) { mode in
+                VStack(spacing: 6) {
+                    Image(systemName: mode.systemImage)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(mode.theme.primary)
+                        .shadow(color: mode.theme.primary.opacity(0.7), radius: 6)
+                    Text(mode.title)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .foregroundStyle(.white)
+                }
+                .frame(maxWidth: .infinity, minHeight: 74)
+                .padding(6)
+                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(mode.theme.primary.opacity(0.35), lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private func buyButton(_ product: Product) -> some View {
+        let owned = store.ownedProductIDs.contains(product.id)
+        return Group {
+            if owned {
+                Label("Unlocked — go be terrible", systemImage: "checkmark.seal.fill")
+                    .font(.headline)
+                    .foregroundStyle(.green)
+                    .padding()
+            } else {
+                Button {
+                    Task { await store.purchase(product) }
+                } label: {
+                    HStack {
+                        Image(systemName: "bolt.fill")
+                        Text("Unlock Everything — \(product.displayPrice)")
+                    }
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(colors: [.orange, .red],
+                                       startPoint: .leading, endPoint: .trailing),
+                        in: Capsule()
+                    )
+                    .foregroundStyle(.white)
+                    .shadow(color: .orange.opacity(0.6), radius: 12, y: 4)
+                }
+                .disabled(store.purchaseInFlight)
             }
         }
     }
@@ -97,51 +180,5 @@ struct PaywallView: View {
             .padding(.top, 4)
         }
         .padding(.top, 30)
-    }
-
-    private var header: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(.yellow)
-            Text("Go Full Savage")
-                .font(.title.bold())
-            Text("Unlock every persona and the premium voices.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.top, 12)
-    }
-
-    private func productRow(_ product: Product) -> some View {
-        let owned = store.ownedProductIDs.contains(product.id)
-        return HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(product.displayName).font(.headline)
-                Text(product.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if owned {
-                Label("Owned", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.green)
-            } else {
-                Button {
-                    Task { await store.purchase(product) }
-                } label: {
-                    Text(product.displayPrice)
-                        .font(.subheadline.bold())
-                        .padding(.horizontal, 16).padding(.vertical, 8)
-                        .background(.orange, in: Capsule())
-                        .foregroundStyle(.white)
-                }
-                .disabled(store.purchaseInFlight)
-            }
-        }
-        .padding()
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
     }
 }

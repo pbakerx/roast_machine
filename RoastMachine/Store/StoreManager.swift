@@ -3,9 +3,10 @@
 //  RoastMachine
 //
 //  StoreKit 2 wrapper for the freemium model:
-//    - Core (Classic Roast + Nature Documentary) is free.
-//    - "All Modes" and "Premium Voices" are small non-consumable unlocks.
-//    - Optional consumable roast-credit packs.
+//    - Classic Roast is free forever.
+//    - One $1.99 non-consumable ("All Modes") unlocks the whole machine.
+//    - Every few launches, free users get dangled ONE free premium roast
+//      as a taste of the good stuff.
 //
 
 import StoreKit
@@ -57,7 +58,38 @@ final class StoreManager: ObservableObject {
 
     /// Whether a given mode is playable right now.
     func isUnlocked(_ mode: RoastMode) -> Bool {
-        mode.isPremium ? hasAllModes : true
+        mode.isPremium ? (hasAllModes || trialUnlockedModeID == mode.id) : true
+    }
+
+    // MARK: - Occasional free premium roast
+
+    /// One premium mode temporarily unlocked as a free taste. Cleared after use.
+    @Published private(set) var trialUnlockedModeID: String?
+    /// True when this launch is dangling a free premium roast the user hasn't taken yet.
+    @Published private(set) var freeRoastAvailable = false
+
+    private static let launchCountKey = "rm.launchCount"
+
+    /// Call once per launch. Every few launches, free users get offered a
+    /// single premium roast on the house — the taste that sells the unlock.
+    func recordLaunch() {
+        guard !hasAllModes else { return }
+        let defaults = UserDefaults.standard
+        let count = defaults.integer(forKey: Self.launchCountKey) + 1
+        defaults.set(count, forKey: Self.launchCountKey)
+        // First-ever launch and every 3rd launch after: dangle the gift.
+        freeRoastAvailable = (count == 1) || (count % 3 == 0)
+    }
+
+    /// User tapped the gift: unlock this one premium mode for a single roast.
+    func acceptFreeRoast(for mode: RoastMode) {
+        trialUnlockedModeID = mode.id
+        freeRoastAvailable = false
+    }
+
+    /// The free roast has been fired — back behind the paywall it goes.
+    func consumeFreeRoast() {
+        trialUnlockedModeID = nil
     }
 
     func product(for id: String) -> Product? {
