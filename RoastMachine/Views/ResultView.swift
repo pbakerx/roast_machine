@@ -18,6 +18,8 @@ struct ResultView: View {
     @State private var showTranscript = false
     @State private var showPaywall = false
     @State private var crankPulse = false
+    @State private var exportingVideo = false
+    @State private var exportedVideoURL: URL?
 
     private var theme: ModeTheme? { engine.mode?.theme }
     private var stickerEvents: [RoastStickers.Event] {
@@ -185,9 +187,11 @@ struct ResultView: View {
                     }
                 }
 
-                controlButton(system: "square.and.arrow.up", label: "Share") {
-                    showShare = true
+                controlButton(system: exportingVideo ? "hourglass" : "square.and.arrow.up",
+                              label: exportingVideo ? "Baking…" : "Share") {
+                    shareTapped()
                 }
+                .disabled(exportingVideo)
             }
 
             Button {
@@ -295,12 +299,35 @@ struct ResultView: View {
         }
     }
 
+    /// Share is video-first: bake the MP4 (photo + audio + stickers) once,
+    /// then reuse it. Falls back to the raw mp3 if the export fails.
+    private func shareTapped() {
+        if exportedVideoURL != nil {
+            showShare = true
+            return
+        }
+        guard let image = engine.image, let audio = engine.audio, let mode = engine.mode else {
+            showShare = true
+            return
+        }
+        exportingVideo = true
+        let script = engine.script
+        Task {
+            defer { exportingVideo = false }
+            exportedVideoURL = try? await VideoExporter.export(
+                image: image, audio: audio, script: script, mode: mode)
+            showShare = true
+        }
+    }
+
     private func shareItems() -> [Any] {
         var items: [Any] = []
         if !engine.script.isEmpty {
             items.append("My Roast Machine bit: \(engine.script)")
         }
-        if let audio = engine.audio {
+        if let video = exportedVideoURL {
+            items.append(video)
+        } else if let audio = engine.audio {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("roast.mp3")
             try? audio.write(to: url)
             items.append(url)
