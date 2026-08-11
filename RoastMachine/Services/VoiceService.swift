@@ -12,8 +12,13 @@ import AVFoundation
 final class VoiceService: NSObject, ObservableObject {
 
     @Published var isPlaying = false
+    /// 0...1 through the current clip. Drives the streamed sticker overlays.
+    @Published var playbackFraction: Double = 0
+
+    var duration: TimeInterval { player?.duration ?? 0 }
 
     private var player: AVAudioPlayer?
+    private var progressTimer: Timer?
     private let session = URLSession.shared
 
     /// Fetches spoken audio (mp3 data) for the given text + ElevenLabs voice.
@@ -61,6 +66,8 @@ final class VoiceService: NSObject, ObservableObject {
             player = newPlayer
             newPlayer.play()
             isPlaying = true
+            playbackFraction = 0
+            startProgressTimer()
         } catch {
             isPlaying = false
         }
@@ -69,6 +76,18 @@ final class VoiceService: NSObject, ObservableObject {
     func stop() {
         player?.stop()
         isPlaying = false
+        progressTimer?.invalidate()
+    }
+
+    private func startProgressTimer() {
+        progressTimer?.invalidate()
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let player = self.player else { return }
+                self.playbackFraction = player.duration > 0
+                    ? player.currentTime / player.duration : 0
+            }
+        }
     }
 
     func togglePlayback(_ data: Data) {
@@ -82,6 +101,10 @@ final class VoiceService: NSObject, ObservableObject {
 
 extension VoiceService: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in self.isPlaying = false }
+        Task { @MainActor in
+            self.isPlaying = false
+            self.playbackFraction = 1
+            self.progressTimer?.invalidate()
+        }
     }
 }
