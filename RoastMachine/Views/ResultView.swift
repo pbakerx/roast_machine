@@ -29,19 +29,28 @@ struct ResultView: View {
         RoastStickers.events(for: engine.script)
     }
 
+    /// Costume props reveal in waves across the playback so the look builds
+    /// with the bit. A prop arriving after its cue pops in immediately.
+    private var revealedSlots: Set<WearableSlot> {
+        let cues: [WearableSlot: Double] = [.head: 0.05, .eyes: 0.3, .mouth: 0.55, .neck: 0.75]
+        let progress = engine.voice.playbackFraction
+        return Set(cues.filter { progress >= $0.value }.keys)
+    }
+
     var body: some View {
         ZStack {
             photoLayer
             scrim
 
-            if let mode = engine.mode, engine.image != nil {
-                CostumeOverlayView(modeID: mode.id)
+            // Roast-matched costume props snap onto the face as the bit plays.
+            if engine.image != nil {
+                WearableOverlayView(images: engine.art.wearables,
+                                    revealed: revealedSlots)
             }
 
             if case .ready = engine.phase {
                 StickerStreamLayer(events: stickerEvents,
-                                   progress: engine.voice.playbackFraction,
-                                   art: engine.art.images)
+                                   progress: engine.voice.playbackFraction)
             }
 
             VStack {
@@ -368,20 +377,18 @@ struct ResultView: View {
 
 // MARK: - Sticker stream
 
-/// Graphics that pop in as their word lands in the audio. Gemini art renders
-/// as a pinned sticker card; the emoji shows instantly and only until the
-/// image for that event arrives (or forever, if generation failed).
+/// Big emoji graphics that pop in as their word lands in the audio — the
+/// quick punctuation around the star of the show, the costume overlays.
 private struct StickerStreamLayer: View {
     let events: [RoastStickers.Event]
     let progress: Double
-    let art: [Int: UIImage]
 
     var body: some View {
         GeometryReader { geo in
             let live = events.filter { $0.fraction <= progress }
             let visible = live.suffix(5)
             ForEach(Array(visible), id: \.id) { event in
-                StickerPop(event: event, image: art[event.id])
+                StickerPop(event: event)
                     .position(x: geo.size.width * event.x,
                               y: geo.size.height * event.y)
             }
@@ -392,13 +399,12 @@ private struct StickerStreamLayer: View {
 
 private struct StickerPop: View {
     let event: RoastStickers.Event
-    let image: UIImage?
-
     @State private var shown = false
-    @State private var pinned = false   // drives the art swap-in overshoot
 
     var body: some View {
-        content
+        Text(event.emoji)
+            .font(.system(size: event.size))
+            .shadow(color: .black.opacity(0.6), radius: 8, y: 4)
             .rotationEffect(.degrees(shown ? event.rotation : event.rotation - 30))
             .scaleEffect(shown ? 1 : 0.1)
             .opacity(shown ? 1 : 0)
@@ -406,34 +412,6 @@ private struct StickerPop: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) {
                     shown = true
                 }
-                if image != nil { pinned = true }
             }
-            .onChange(of: image == nil) { _, missing in
-                guard !missing else { return }
-                pinned = false
-                // Brock-style pin: 0.62 → 1 with a bouncy overshoot.
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
-                    pinned = true
-                }
-            }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if let image {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(width: event.size * 2.1, height: event.size * 2.1)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .padding(6)
-                .background(.white, in: RoundedRectangle(cornerRadius: 18))
-                .shadow(color: .black.opacity(0.55), radius: 10, y: 5)
-                .scaleEffect(pinned ? 1 : 0.62)
-        } else {
-            Text(event.emoji)
-                .font(.system(size: event.size))
-                .shadow(color: .black.opacity(0.6), radius: 8, y: 4)
-        }
     }
 }

@@ -2,63 +2,23 @@
 //  CostumeOverlay.swift
 //  RoastMachine
 //
-//  Per-mode costume graphics worn over the live selfie: a chef gets a toque
-//  and coat, the bard gets a plumed cap and ruff, the conspiracy theorist gets
-//  the tinfoil. Pieces anchor to the same rect as the face-positioning guide,
-//  so when your face is in the guide, the costume fits.
+//  Face-anchored costume overlays. Wearable props (AI-generated, chroma-keyed
+//  to transparency) snap onto slots of the face-guide rect — hat on the head,
+//  glasses on the eyes, mustache on the mouth, chain on the neck — like a
+//  photo booth that heckles you. Plus the drifting stage embers.
 //
 
 import SwiftUI
 
-// MARK: - Catalog
+// MARK: - Wearable overlay
 
-struct CostumePiece {
-    enum Slot { case head, eyes, neck }
-
-    let asset: String
-    let slot: Slot
-    /// Width relative to the face-guide width.
-    let widthFraction: CGFloat
-
-    static func pieces(for modeID: String) -> [CostumePiece] {
-        func head(_ w: CGFloat = 0.9) -> CostumePiece {
-            CostumePiece(asset: "costume_\(modeID)_head", slot: .head, widthFraction: w)
-        }
-        func eyes(_ w: CGFloat = 0.8) -> CostumePiece {
-            CostumePiece(asset: "costume_\(modeID)_eyes", slot: .eyes, widthFraction: w)
-        }
-        func neck(_ w: CGFloat = 0.95) -> CostumePiece {
-            CostumePiece(asset: "costume_\(modeID)_neck", slot: .neck, widthFraction: w)
-        }
-        switch modeID {
-        case "classic":     return [head(0.85), neck(0.55)]
-        case "nature":      return [head(1.0)]
-        case "ramsay":      return [head(0.8), neck(1.05)]
-        case "mom":         return [head(0.85), neck(0.75)]
-        case "shakespeare": return [head(0.9), neck(1.0)]
-        case "disstrack":   return [head(0.85), neck(0.8)]
-        case "beautiful":   return [head(0.8)]
-        case "fortune":     return [head(0.85)]
-        case "drill":       return [head(1.0)]
-        case "linkedin":    return [neck(0.9)]
-        case "conspiracy":  return [head(0.75)]
-        case "pickup":      return [neck(1.0)]
-        case "datingbio":   return [eyes(0.85)]
-        case "pet":         return [head(0.8), neck(0.7)]
-        default:            return []
-        }
-    }
-}
-
-// MARK: - Overlay view
-
-/// Draws the selected mode's costume pieces anchored to the face guide rect.
-/// Layout mirrors FaceGuideOverlay: guide is 72% of width, 1.25 aspect,
-/// centered at 40% height.
-struct CostumeOverlayView: View {
-    let modeID: String
-
-    @State private var shown = false
+/// Draws transparent costume props anchored to the face guide. Layout mirrors
+/// FaceGuideOverlay: guide is 72% of width, 1.25 aspect, centered at 40% height.
+struct WearableOverlayView: View {
+    let images: [WearableSlot: UIImage]
+    /// Slots allowed to show right now (drives the timed reveal in ResultView).
+    /// Nil means show everything available.
+    var revealed: Set<WearableSlot>? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -68,44 +28,65 @@ struct CostumeOverlayView: View {
             let topY = geo.size.height * 0.40 - gh / 2
             let bottomY = geo.size.height * 0.40 + gh / 2
 
-            ForEach(Array(CostumePiece.pieces(for: modeID).enumerated()), id: \.element.asset) { index, piece in
-                if let ui = UIImage(named: piece.asset) {
-                    let w = gw * piece.widthFraction
+            ForEach(Array(visibleSlots.enumerated()), id: \.element.rawValue) { index, slot in
+                if let ui = images[slot] {
+                    let w = gw * widthFraction(slot)
                     let h = w * ui.size.height / ui.size.width
-                    Image(uiImage: ui)
-                        .resizable()
+                    WearablePop(image: ui, delay: Double(index) * 0.1)
                         .frame(width: w, height: h)
-                        .position(x: cx, y: yPosition(for: piece.slot,
-                                                      pieceHeight: h,
-                                                      topY: topY, bottomY: bottomY,
-                                                      guideHeight: gh))
-                        .scaleEffect(shown ? 1 : 0.3)
-                        .rotationEffect(.degrees(shown ? 0 : (index.isMultiple(of: 2) ? -14 : 14)))
-                        .opacity(shown ? 1 : 0)
-                        .animation(.spring(response: 0.45, dampingFraction: 0.6).delay(Double(index) * 0.08),
-                                   value: shown)
+                        .position(x: cx, y: yPosition(slot, pieceHeight: h,
+                                                      topY: topY, bottomY: bottomY, gh: gh))
                 }
             }
         }
         .allowsHitTesting(false)
-        .onAppear { shown = true }
-        .onChange(of: modeID) { _, _ in
-            shown = false
-            withAnimation { shown = true }
+    }
+
+    private var visibleSlots: [WearableSlot] {
+        WearableSlot.revealOrder.filter { slot in
+            images[slot] != nil && (revealed?.contains(slot) ?? true)
         }
     }
 
-    private func yPosition(for slot: CostumePiece.Slot, pieceHeight: CGFloat,
-                           topY: CGFloat, bottomY: CGFloat, guideHeight: CGFloat) -> CGFloat {
+    private func widthFraction(_ slot: WearableSlot) -> CGFloat {
         switch slot {
-        case .head:
-            // brim overlaps the top of the guide slightly
-            return topY - pieceHeight / 2 + pieceHeight * 0.22
-        case .eyes:
-            return topY + guideHeight * 0.34
-        case .neck:
-            return bottomY + pieceHeight * 0.18
+        case .head:  return 0.95
+        case .eyes:  return 0.8
+        case .mouth: return 0.62
+        case .neck:  return 0.95
         }
+    }
+
+    private func yPosition(_ slot: WearableSlot, pieceHeight: CGFloat,
+                           topY: CGFloat, bottomY: CGFloat, gh: CGFloat) -> CGFloat {
+        switch slot {
+        case .head:  return topY - pieceHeight / 2 + pieceHeight * 0.30
+        case .eyes:  return topY + gh * 0.34
+        case .mouth: return topY + gh * 0.62
+        case .neck:  return bottomY + pieceHeight * 0.10
+        }
+    }
+}
+
+/// One prop snapping on with a goofy overshoot wobble.
+private struct WearablePop: View {
+    let image: UIImage
+    let delay: Double
+    @State private var shown = false
+
+    var body: some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFit()
+            .shadow(color: .black.opacity(0.45), radius: 8, y: 4)
+            .scaleEffect(shown ? 1 : 0.2)
+            .rotationEffect(.degrees(shown ? 0 : -18))
+            .opacity(shown ? 1 : 0)
+            .onAppear {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.55).delay(delay)) {
+                    shown = true
+                }
+            }
     }
 }
 

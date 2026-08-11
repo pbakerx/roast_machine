@@ -44,8 +44,8 @@ struct HomeView: View {
                 FaceGuideOverlay(theme: theme)
             }
 
-            // Costume graphics matching the voice: chef hat for the chef, etc.
-            CostumeOverlayView(modeID: selectedMode.id)
+            // AI costume props matching the persona: toque for the chef, etc.
+            WearableOverlayView(images: engine.art.stageSet)
 
             VStack(spacing: 0) {
                 topBar
@@ -57,7 +57,13 @@ struct HomeView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: selectedID)
-        .onAppear { camera.start() }
+        .onAppear {
+            camera.start()
+            engine.art.loadStageSet(for: selectedMode)
+        }
+        .onChange(of: selectedID) { _, _ in
+            engine.art.loadStageSet(for: selectedMode)
+        }
         .onDisappear { camera.stop() }
         .sheet(isPresented: $showPaywall) { PaywallView().environmentObject(store) }
         .alert(
