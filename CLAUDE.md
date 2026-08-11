@@ -18,9 +18,14 @@ out loud. Pipeline: **OpenAI `gpt-4o` vision → roast script → ElevenLabs TTS
 1. Open `RoastMachine.xcodeproj` (Xcode 16, objectVersion 70, iOS 18.5, Swift 5).
 2. API keys live in `Secrets.xcconfig` (git-ignored) and flow into the app via
    `RoastMachine-Info.plist` → read in `AppConfig.swift` from `Bundle.main.infoDictionary`.
+   Keys: `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `GEMINI_API_KEY` (source of truth:
+   `~/Software Development/MasterTechNotesForClaude/secret.txt`, "Gemini:" line).
 3. Signing: team `55Y3LX4J5J`, bundle id `AechTech.RoastMachine`, automatic signing.
-4. StoreKit testing: Edit Scheme ▸ Run ▸ Options ▸ StoreKit Configuration ▸
-   `Subscriptions.storekit`, or products come back empty and the paywall spins.
+4. StoreKit testing: the **shared scheme** (`xcshareddata/xcschemes/RoastMachine.xcscheme`)
+   already pins `Subscriptions.storekit`, so Xcode-launched runs have a working local
+   store. Home-screen launches on a device need the real IAP in App Store Connect
+   (product id `AechTech.RoastMachine.allmodes`, $1.99 non-consumable) before
+   sandbox purchases succeed.
 
 ## Architecture (`RoastMachine/`)
 - `RoastMachineApp.swift` — entry; owns `StoreManager`.
@@ -30,7 +35,13 @@ out loud. Pipeline: **OpenAI `gpt-4o` vision → roast script → ElevenLabs TTS
 - `Models/RoastStickers.swift` — transcript → timed emoji sticker events (keyword lexicon, deterministic placement).
 - `Services/RoastScriptService.swift` — OpenAI vision → roast text.
 - `Services/VoiceService.swift` — ElevenLabs TTS + AVAudioPlayer; publishes `playbackFraction` (drives sticker stream); voice previews cached per voice in Caches.
-- `Services/RoastEngine.swift` — `@MainActor` pipeline orchestrator + phase state.
+- `Services/RoastEngine.swift` — `@MainActor` pipeline orchestrator + phase state; owns `RoastArtService`.
+- `Services/RoastArtService.swift` — Gemini image fan-out (`gemini-2.5-flash-image`,
+  `responseModalities: [IMAGE]`, `x-goog-api-key`): one image per sticker keyword,
+  rotating style dictionary + scene cohesion line, two waves of ≤4 in flight,
+  45s timeout + 1 retry, silent fallback to emoji. Pattern ported from the Brock
+  Institute site's `share-idea-demo` branch (`api/voice-image.js`) — study only,
+  never modify that repo.
 - `Services/VideoExporter.swift` — photo + audio + stickers → shareable 1080×1920 MP4.
 - `Store/StoreManager.swift` — StoreKit 2 freemium + occasional free-premium-roast gift (`recordLaunch`/`acceptFreeRoast`/`consumeFreeRoast`).
 - `Views/RootView.swift` — nav; pushes ResultView when a roast starts.
@@ -42,8 +53,10 @@ out loud. Pipeline: **OpenAI `gpt-4o` vision → roast script → ElevenLabs TTS
 - `Views/CostumeOverlay.swift` — per-mode costume pieces (head/eyes/neck) anchored to the
   face-guide rect + `EmberField` particles.
 - `Views/LivePortraitView.swift` — houses `CameraController` + `CameraPreview` (AVCaptureSession) reused by the Stage.
-- `Views/ResultView.swift` — audio-first show: full-frame photo, streamed stickers,
-  CRANK IT UP banner, transcript demoted to a sheet, video-first share.
+- `Views/ResultView.swift` — audio-first show: full-frame photo, streamed stickers
+  (emoji instantly, Gemini art card pins in over it when ready), CRANK IT UP banner,
+  huge TRY AGAIN capsule 5s into playback, transcript demoted to a sheet,
+  video-first share.
 - `Views/ImagePicker.swift` — `ShareSheet` (+ legacy `CameraPicker`, currently unused).
 
 ## Art pipeline
@@ -54,8 +67,8 @@ from below, bold silhouettes, violet shadows). Scripts live outside the repo in
 the session scratchpad; regenerate by re-running them or ask the assistant.
 
 ## Important flags & conventions
-- **Dev unlock:** `StoreManager.devUnlockEverything = true` unlocks all premium modes
-  without purchase. **Set to `false` before TestFlight / App Store.**
+- **Dev unlock:** `StoreManager.devUnlockEverything` is **`false`** — the paywall and
+  gift-roast flow are live everywhere. Only flip to `true` temporarily for UI work.
 - Content safety: every roast is framed by `RoastMode.sharedPreamble` as a comedian
   practising on an *old photo of the user* — forbids cruelty, protected
   characteristics, profanity. Users should only roast their own photos (App Review).
