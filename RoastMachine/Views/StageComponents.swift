@@ -206,7 +206,27 @@ struct ShutterButton: View {
 
 struct ThematicBackdrop: View {
     let theme: ModeTheme
+
     var body: some View {
+        Group {
+            if let name = theme.imageName, UIImage(named: name) != nil {
+                GeometryReader { geo in
+                    Image(name)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
+            } else {
+                procedural
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    /// Original gradient-and-motifs look, kept as a fallback for modes
+    /// without painted art.
+    private var procedural: some View {
         ZStack {
             LinearGradient(colors: theme.backdrop, startPoint: .top, endPoint: .bottom)
             GeometryReader { geo in
@@ -221,7 +241,6 @@ struct ThematicBackdrop: View {
                 }
             }
         }
-        .ignoresSafeArea()
     }
 }
 

@@ -25,6 +25,10 @@ struct ModeTheme {
     /// Shape of the face-positioning guide.
     let guide: GuideShape
 
+    /// Painted scene image in the asset catalog (backdrop_<modeid>).
+    /// Nil or missing asset falls back to the procedural gradient backdrop.
+    var imageName: String? = nil
+
     enum GuideShape { case spotlight, oval, plate, frame, diamond }
 }
 
@@ -34,6 +38,12 @@ extension RoastMode {
 
 extension ModeTheme {
     static func forMode(_ id: String) -> ModeTheme {
+        var theme = base(for: id)
+        theme.imageName = "backdrop_\(id)"
+        return theme
+    }
+
+    private static func base(for id: String) -> ModeTheme {
         switch id {
         case "classic":
             return ModeTheme(scene: "COMEDY CLUB", hint: "STEP INTO THE SPOTLIGHT",
