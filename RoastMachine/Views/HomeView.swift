@@ -35,9 +35,17 @@ struct HomeView: View {
             vignette
             SceneScrim(theme: theme)
 
+            // The free headliner act gets the full show: drifting stage embers.
+            if selectedMode.id == "classic" {
+                EmberField(tint: theme.primary).ignoresSafeArea()
+            }
+
             if libraryImage == nil {
                 FaceGuideOverlay(theme: theme)
             }
+
+            // Costume graphics matching the voice: chef hat for the chef, etc.
+            CostumeOverlayView(modeID: selectedMode.id)
 
             VStack(spacing: 0) {
                 topBar
