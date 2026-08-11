@@ -25,6 +25,7 @@ final class RoastEngine: ObservableObject {
     @Published private(set) var image: UIImage?
 
     let voice = VoiceService()
+    let art = RoastArtService()
     private let scripts = RoastScriptService()
 
     var isBusy: Bool {
@@ -45,6 +46,10 @@ final class RoastEngine: ObservableObject {
             let text = try await scripts.generateScript(for: image, mode: mode)
             script = text
 
+            // Art generates while the voice synthesizes, so most images land
+            // mid-playback and visibly stream onto the screen.
+            art.generate(for: text, mode: mode)
+
             phase = .voicing
             let data = try await voice.synthesize(text: text, voiceID: mode.voiceID)
             audio = data
@@ -64,6 +69,7 @@ final class RoastEngine: ObservableObject {
 
     func reset() {
         voice.stop()
+        art.cancel()
         phase = .idle
         script = ""
         audio = nil

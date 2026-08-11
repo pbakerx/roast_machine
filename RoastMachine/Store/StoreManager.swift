@@ -46,8 +46,9 @@ final class StoreManager: ObservableObject {
     // MARK: - Entitlement helpers
 
     /// DEV ONLY: unlock every premium mode + voice without a purchase.
-    /// Set to `false` before shipping to TestFlight / the App Store.
-    static let devUnlockEverything = true
+    /// Keep `false` so the real paywall + gift flow run everywhere; flip to
+    /// `true` only for local UI work that shouldn't touch the store.
+    static let devUnlockEverything = false
 
     var hasAllModes: Bool {
         Self.devUnlockEverything || ownedProductIDs.contains(ProductID.allModes)

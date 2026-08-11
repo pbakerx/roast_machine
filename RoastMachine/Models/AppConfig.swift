@@ -17,8 +17,13 @@ enum AppConfig {
         value(for: "ELEVENLABS_API_KEY")
     }
 
+    static var geminiKey: String {
+        value(for: "GEMINI_API_KEY")
+    }
+
     static var hasOpenAIKey: Bool { !openAIKey.isEmpty }
     static var hasElevenLabsKey: Bool { !elevenLabsKey.isEmpty }
+    static var hasGeminiKey: Bool { !geminiKey.isEmpty }
 
     private static func value(for key: String) -> String {
         guard let raw = Bundle.main.infoDictionary?[key] as? String else { return "" }

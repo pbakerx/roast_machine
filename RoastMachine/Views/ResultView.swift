@@ -20,6 +20,9 @@ struct ResultView: View {
     @State private var crankPulse = false
     @State private var exportingVideo = false
     @State private var exportedVideoURL: URL?
+    /// Flips true 5s after playback first starts; brings in the big TRY AGAIN.
+    @State private var showTryAgain = false
+    @State private var tryAgainArmed = false
 
     private var theme: ModeTheme? { engine.mode?.theme }
     private var stickerEvents: [RoastStickers.Event] {
@@ -37,7 +40,8 @@ struct ResultView: View {
 
             if case .ready = engine.phase {
                 StickerStreamLayer(events: stickerEvents,
-                                   progress: engine.voice.playbackFraction)
+                                   progress: engine.voice.playbackFraction,
+                                   art: engine.art.images)
             }
 
             VStack {
@@ -59,6 +63,16 @@ struct ResultView: View {
         .sheet(isPresented: $showPaywall) { PaywallView().environmentObject(store) }
         .sheet(isPresented: $showTranscript) { transcriptSheet }
         .onAppear { crankPulse = true }
+        .onChange(of: engine.voice.isPlaying) { _, playing in
+            guard playing, !tryAgainArmed else { return }
+            tryAgainArmed = true
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                    showTryAgain = true
+                }
+            }
+        }
     }
 
     // MARK: - Layers
@@ -194,15 +208,31 @@ struct ResultView: View {
                 .disabled(exportingVideo)
             }
 
-            Button {
-                dismiss()
-            } label: {
-                Text("ROAST ME AGAIN")
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .tracking(1.5)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.horizontal, 18).padding(.vertical, 10)
-                    .background(.white.opacity(0.12), in: Capsule())
+            // The headline exit: impossible to miss once the bit has landed.
+            if showTryAgain {
+                Button {
+                    Haptics.thunk()
+                    dismiss()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "flame.fill")
+                        Text("TRY AGAIN")
+                            .tracking(3)
+                        Image(systemName: "arrow.counterclockwise")
+                    }
+                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .background(
+                        LinearGradient(colors: [.orange, .red],
+                                       startPoint: .leading, endPoint: .trailing),
+                        in: Capsule()
+                    )
+                    .overlay(Capsule().stroke(.yellow.opacity(0.6), lineWidth: 2))
+                    .shadow(color: .orange.opacity(0.7), radius: 16, y: 4)
+                }
+                .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
 
             if !store.hasAllModes {
@@ -338,18 +368,20 @@ struct ResultView: View {
 
 // MARK: - Sticker stream
 
-/// Big emoji graphics that pop in as their word lands in the audio, wobble,
-/// and hang around like props on the stage. Max a handful visible at once.
+/// Graphics that pop in as their word lands in the audio. Gemini art renders
+/// as a pinned sticker card; the emoji shows instantly and only until the
+/// image for that event arrives (or forever, if generation failed).
 private struct StickerStreamLayer: View {
     let events: [RoastStickers.Event]
     let progress: Double
+    let art: [Int: UIImage]
 
     var body: some View {
         GeometryReader { geo in
             let live = events.filter { $0.fraction <= progress }
             let visible = live.suffix(5)
             ForEach(Array(visible), id: \.id) { event in
-                StickerPop(event: event)
+                StickerPop(event: event, image: art[event.id])
                     .position(x: geo.size.width * event.x,
                               y: geo.size.height * event.y)
             }
@@ -360,12 +392,13 @@ private struct StickerStreamLayer: View {
 
 private struct StickerPop: View {
     let event: RoastStickers.Event
+    let image: UIImage?
+
     @State private var shown = false
+    @State private var pinned = false   // drives the art swap-in overshoot
 
     var body: some View {
-        Text(event.emoji)
-            .font(.system(size: event.size))
-            .shadow(color: .black.opacity(0.6), radius: 8, y: 4)
+        content
             .rotationEffect(.degrees(shown ? event.rotation : event.rotation - 30))
             .scaleEffect(shown ? 1 : 0.1)
             .opacity(shown ? 1 : 0)
@@ -373,6 +406,34 @@ private struct StickerPop: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) {
                     shown = true
                 }
+                if image != nil { pinned = true }
             }
+            .onChange(of: image == nil) { _, missing in
+                guard !missing else { return }
+                pinned = false
+                // Brock-style pin: 0.62 → 1 with a bouncy overshoot.
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+                    pinned = true
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: event.size * 2.1, height: event.size * 2.1)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(6)
+                .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                .shadow(color: .black.opacity(0.55), radius: 10, y: 5)
+                .scaleEffect(pinned ? 1 : 0.62)
+        } else {
+            Text(event.emoji)
+                .font(.system(size: event.size))
+                .shadow(color: .black.opacity(0.6), radius: 8, y: 4)
+        }
     }
 }
