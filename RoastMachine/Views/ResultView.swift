@@ -25,19 +25,12 @@ struct ResultView: View {
     @State private var tryAgainArmed = false
 
     private var theme: ModeTheme? { engine.mode?.theme }
-    private var stickerEvents: [RoastStickers.Event] {
-        RoastStickers.events(for: engine.script)
-    }
 
     var body: some View {
         ZStack {
             photoLayer
             scrim
 
-            if case .ready = engine.phase {
-                StickerStreamLayer(events: stickerEvents,
-                                   progress: engine.voice.playbackFraction)
-            }
 
             VStack {
                 topChip
@@ -61,6 +54,7 @@ struct ResultView: View {
         .onChange(of: engine.voice.isPlaying) { _, playing in
             guard playing, !tryAgainArmed else { return }
             tryAgainArmed = true
+            showDemoWordsIfRequested()
             Task {
                 try? await Task.sleep(for: .seconds(5))
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
@@ -69,6 +63,20 @@ struct ResultView: View {
             }
         }
     }
+
+#if DEBUG && targetEnvironment(simulator)
+    /// Screenshot rig: `SIMCTL_CHILD_RM_DEMO_WORDS=1` opens the transcript
+    /// once the bit is playing, so a capture can show what was said.
+    private func showDemoWordsIfRequested() {
+        guard ProcessInfo.processInfo.environment["RM_DEMO_WORDS"] == "1" else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(6))
+            showTranscript = true
+        }
+    }
+#else
+    private func showDemoWordsIfRequested() {}
+#endif
 
     // MARK: - Layers
 
@@ -324,7 +332,7 @@ struct ResultView: View {
         }
     }
 
-    /// Share is video-first: bake the MP4 (photo + audio + stickers) once,
+    /// Share is video-first: bake the MP4 (photo + audio + badge) once,
     /// then reuse it. Falls back to the raw mp3 if the export fails.
     private func shareTapped() {
         if exportedVideoURL != nil {
@@ -336,11 +344,10 @@ struct ResultView: View {
             return
         }
         exportingVideo = true
-        let script = engine.script
         Task {
             defer { exportingVideo = false }
             exportedVideoURL = try? await VideoExporter.export(
-                image: image, audio: audio, script: script, mode: mode)
+                image: image, audio: audio, mode: mode)
             showShare = true
         }
     }
@@ -358,46 +365,5 @@ struct ResultView: View {
             items.append(url)
         }
         return items
-    }
-}
-
-// MARK: - Sticker stream
-
-/// Big emoji graphics that pop in as their word lands in the audio —
-/// quick visual punctuation for the bit.
-private struct StickerStreamLayer: View {
-    let events: [RoastStickers.Event]
-    let progress: Double
-
-    var body: some View {
-        GeometryReader { geo in
-            let live = events.filter { $0.fraction <= progress }
-            let visible = live.suffix(5)
-            ForEach(Array(visible), id: \.id) { event in
-                StickerPop(event: event)
-                    .position(x: geo.size.width * event.x,
-                              y: geo.size.height * event.y)
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-private struct StickerPop: View {
-    let event: RoastStickers.Event
-    @State private var shown = false
-
-    var body: some View {
-        Text(event.emoji)
-            .font(.system(size: event.size))
-            .shadow(color: .black.opacity(0.6), radius: 8, y: 4)
-            .rotationEffect(.degrees(shown ? event.rotation : event.rotation - 30))
-            .scaleEffect(shown ? 1 : 0.1)
-            .opacity(shown ? 1 : 0)
-            .onAppear {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) {
-                    shown = true
-                }
-            }
     }
 }

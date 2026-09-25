@@ -3,7 +3,7 @@
 //  RoastMachineTests
 //
 //  Pure-logic coverage for the pieces App Review will exercise hardest:
-//  prompt assembly (roast vs hype), the sticker stream, and paywall gating.
+//  prompt assembly (roast vs hype) and paywall gating.
 //
 
 import XCTest
@@ -44,43 +44,6 @@ final class PromptAssemblyTests: XCTestCase {
     func testClassicHeadlinesTheDial() {
         XCTAssertEqual(RoastMode.all.first?.id, "classic")
         XCTAssertEqual(RoastMode.classic.id, "classic")
-    }
-}
-
-final class RoastStickersTests: XCTestCase {
-
-    private let script = "Look at that tomato shirt and those sunglasses, " +
-        "the microphone loves you, pure fire, a trophy of a haircut, honestly a star."
-
-    func testEmptyScriptYieldsNoEvents() {
-        XCTAssertTrue(RoastStickers.events(for: "").isEmpty)
-    }
-
-    func testEventsAreDeterministic() {
-        XCTAssertEqual(RoastStickers.events(for: script),
-                       RoastStickers.events(for: script))
-    }
-
-    func testEventsAreOrderedSpacedAndBounded() {
-        let events = RoastStickers.events(for: script)
-        XCTAssertFalse(events.isEmpty)
-        XCTAssertLessThanOrEqual(events.count, 12)
-
-        var last = -1.0
-        for event in events {
-            XCTAssertGreaterThanOrEqual(event.fraction - last, 0.05)
-            XCTAssertLessThanOrEqual(event.fraction, 0.97)
-            XCTAssertTrue((0...1).contains(event.x))
-            XCTAssertTrue((0...1).contains(event.y))
-            last = event.fraction
-        }
-    }
-
-    func testPluralsResolveToSameEmoji() {
-        let single = RoastStickers.events(for: "a tomato")
-        let plural = RoastStickers.events(for: "some tomatoes")
-        XCTAssertEqual(single.first?.emoji, "🍅")
-        XCTAssertEqual(plural.first?.emoji, "🍅")
     }
 }
 

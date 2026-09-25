@@ -3,8 +3,7 @@
 //  RoastMachine
 //
 //  Bakes a roast into a shareable vertical MP4: the photo full-frame, the
-//  ElevenLabs audio underneath, the mode badge, and the same timed emoji
-//  graphics the app streams during playback — so the share looks like the show.
+//  ElevenLabs audio underneath, and the mode badge.
 //
 
 import AVFoundation
@@ -25,8 +24,8 @@ enum VideoExporter {
 
     static let renderSize = CGSize(width: 1080, height: 1920)
 
-    /// Renders photo + audio + timed stickers into an .mp4 and returns its URL.
-    static func export(image: UIImage, audio: Data, script: String, mode: RoastMode) async throws -> URL {
+    /// Renders photo + audio + badge into an .mp4 and returns its URL.
+    static func export(image: UIImage, audio: Data, mode: RoastMode) async throws -> URL {
         let tmp = FileManager.default.temporaryDirectory
         let audioURL = tmp.appendingPathComponent("roast_export_audio.mp3")
         let videoURL = tmp.appendingPathComponent("roast_\(mode.id).mp4")
@@ -41,7 +40,7 @@ enum VideoExporter {
             throw ExportError.writerSetup
         }
 
-        // -- video input: a handful of still frames, one per sticker change
+        // -- video input: one still frame held for the length of the audio
         let videoSettings: [String: Any] = [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: renderSize.width,
@@ -85,26 +84,15 @@ enum VideoExporter {
         reader.startReading()
         writer.startSession(atSourceTime: .zero)
 
-        // frame timeline: base frame, then one new frame per sticker landing
-        let events = RoastStickers.events(for: script)
-        var cutTimes: [Double] = [0]
-        cutTimes.append(contentsOf: events.map { $0.fraction * seconds })
-
-        for (index, time) in cutTimes.enumerated() {
-            let visible = Array(events.filter { $0.fraction * seconds <= time }.suffix(5))
-            let frame = renderFrame(image: image, mode: mode, stickers: visible)
-            guard let buffer = pixelBuffer(from: frame) else { continue }
+        // the same frame at the start and the end so the video spans the audio
+        guard let buffer = pixelBuffer(from: renderFrame(image: image, mode: mode)) else {
+            throw ExportError.writerSetup
+        }
+        for time in [0, seconds] {
             while !videoInput.isReadyForMoreMediaData {
                 try await Task.sleep(nanoseconds: 20_000_000)
             }
             adaptor.append(buffer, withPresentationTime: CMTime(seconds: time, preferredTimescale: 600))
-            // repeat the final frame at the very end so the video spans the audio
-            if index == cutTimes.count - 1 {
-                while !videoInput.isReadyForMoreMediaData {
-                    try await Task.sleep(nanoseconds: 20_000_000)
-                }
-                adaptor.append(buffer, withPresentationTime: CMTime(seconds: seconds, preferredTimescale: 600))
-            }
         }
         videoInput.markAsFinished()
 
@@ -133,8 +121,7 @@ enum VideoExporter {
 
     // MARK: - Frame rendering
 
-    private static func renderFrame(image: UIImage, mode: RoastMode,
-                                    stickers: [RoastStickers.Event]) -> UIImage {
+    private static func renderFrame(image: UIImage, mode: RoastMode) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: renderSize)
         return renderer.image { ctx in
             // photo, aspect-filled
@@ -157,19 +144,6 @@ enum VideoExporter {
                 end: CGPoint(x: 0, y: renderSize.height),
                 options: [])
 
-            // stickers, same unit positions as the live show
-            for event in stickers {
-                let font = UIFont.systemFont(ofSize: event.size * 2.2)
-                let str = NSAttributedString(string: event.emoji, attributes: [.font: font])
-                let size = str.size()
-                let center = CGPoint(x: renderSize.width * event.x,
-                                     y: renderSize.height * event.y)
-                ctx.cgContext.saveGState()
-                ctx.cgContext.translateBy(x: center.x, y: center.y)
-                ctx.cgContext.rotate(by: event.rotation * .pi / 180)
-                str.draw(at: CGPoint(x: -size.width / 2, y: -size.height / 2))
-                ctx.cgContext.restoreGState()
-            }
 
             // badge: mode + branding
             let badge = "\(mode.theme.scene)  •  \(mode.title)"

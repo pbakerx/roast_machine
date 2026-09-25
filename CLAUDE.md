@@ -6,8 +6,9 @@ Context for AI coding assistants working on this project.
 An iOS "roast machine": the user points the camera at their face (or picks a
 photo), chooses a comedic persona ("mode"), flips a ROAST/HYPE rocker, and the
 app speaks a roast — or an over-the-top compliment — out loud.
-Pipeline: **OpenAI `gpt-4o` vision → script → ElevenLabs TTS → playback**, with
-emoji stickers popping in as their words land.
+Pipeline: **OpenAI `gpt-4o` vision → script → ElevenLabs TTS → playback**.
+No images are generated or streamed onto the show — Philip cut both the Gemini
+art and the emoji sticker stream as not useful; don't reintroduce them.
 
 ## ⚠️ Canonical location (read first)
 - **Work here:** `/Users/philipbaker/Software Development/RoastMachine 2.0` (non-cloud drive, this repo).
@@ -25,7 +26,7 @@ emoji stickers popping in as their words land.
 3. Signing: team `55Y3LX4J5J`, bundle id `AechTech.RoastMachine`, automatic signing.
    Bump `CURRENT_PROJECT_VERSION` for every App Store Connect upload.
 4. Tests: `RoastMachineTests` (unit, hosted in the app; folder-synced) — prompt
-   assembly, sticker stream, store gating. Run:
+   assembly and store gating. Run:
    `xcodebuild -project RoastMachine.xcodeproj -scheme RoastMachine -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.5' test`
 5. StoreKit: the **shared scheme** pins `Subscriptions.storekit` for Xcode-launched
    runs. Apps launched any other way (`simctl launch`, TestFlight, device) hit the
@@ -46,13 +47,11 @@ emoji stickers popping in as their words land.
   ElevenLabs voice id, icon, `previewLine`. `RoastFlavor` (`.roast` / `.compliment`)
   picks `sharedPreamble` or `complimentPreamble` in `fullPrompt(flavor:)`.
 - `Models/ModeTheme.swift` — per-mode "scene" (colors, painted backdrop image name, face-guide shape, hint).
-- `Models/RoastStickers.swift` — transcript → timed emoji sticker events (keyword
-  lexicon incl. era/style/hype words, deterministic placement, max 12, ≥5% spacing).
 - `Services/RoastScriptService.swift` — OpenAI vision → script for a mode + flavor.
-- `Services/VoiceService.swift` — ElevenLabs TTS + AVAudioPlayer; publishes `playbackFraction` (drives stickers); voice previews cached in Caches.
+- `Services/VoiceService.swift` — ElevenLabs TTS + AVAudioPlayer; voice previews cached in Caches.
 - `Services/RoastEngine.swift` — `@MainActor` pipeline orchestrator + phase state;
   forwards `VoiceService` change notifications.
-- `Services/VideoExporter.swift` — photo + audio + stickers → shareable 1080×1920 MP4.
+- `Services/VideoExporter.swift` — photo + audio + mode badge → shareable 1080×1920 MP4.
 - `Store/StoreManager.swift` — StoreKit 2: free-run flags, `canRun(flavor)`,
   `consumeFreeRun`, purchase/restore.
 - `Views/RootView.swift` — nav; pushes ResultView when a run starts.
@@ -66,7 +65,7 @@ emoji stickers popping in as their words land.
   `ThematicBackdrop`, `SceneScrim`, `Haptics`.
 - `Views/EmberField.swift` — drifting embers for the Classic stage.
 - `Views/LivePortraitView.swift` — `CameraController` + `CameraPreview` (AVCaptureSession).
-- `Views/ResultView.swift` — audio-first show: full-frame photo, sticker stream,
+- `Views/ResultView.swift` — audio-first show: full-frame photo,
   CRANK IT UP banner, TRY AGAIN capsule 5s in, transcript sheet, video-first share.
 - `Views/PaywallView.swift` — lineup grid, one buy button, restore, policy link.
 - `Views/ImagePicker.swift` — `ShareSheet` (+ legacy `CameraPicker`, unused).
@@ -98,7 +97,6 @@ below, bold silhouettes, violet shadows). There is no runtime image generation.
 
 ## Known-good next steps / ideas
 - Streamed TTS playback (start audio before the full clip arrives).
-- Word-accurate sticker timing via ElevenLabs timestamps instead of char-offset estimates.
 - Backend proxy for API keys.
 
 ## Git

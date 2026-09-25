@@ -26,7 +26,7 @@ Your first roast and your first hype are on the house. One payment unlocks all 1
 
 Point the camera at your face. Pick a comedian. Get roasted — out loud.
 
-Roast Machine is a stand-up act in your pocket. Snap a photo (or grab one from your library), spin the dial to one of 14 AI comedians, and hit the big button. Seconds later a real voice is ripping into your outfit, your hair, your pose, your whole vibe — with emoji punchlines slamming onto the screen as the words land.
+Roast Machine is a stand-up act in your pocket. Snap a photo (or grab one from your library), spin the dial to one of 14 AI comedians, and hit the big button. Seconds later a real voice is ripping into your outfit, your hair, your pose, your whole vibe.
 
 Feeling fragile? Flip the switch to HYPE and the same comedians go the other way: over-the-top, no-notes, you-are-a-legend compliments. Same voices. All love.
 
@@ -39,7 +39,7 @@ THE LINEUP
 • Diss Track, Drill Sergeant, Corporate Influencer, Conspiracy Theorist, Fortune Teller, Pickup Lines, Dating Bio, Pet Translator, and You're So Beautiful
 
 BUILT FOR THE GROUP CHAT
-Every bit exports as a video with the audio and the emoji baked in. One tap to share.
+Every bit exports as a video with the audio baked in. One tap to share.
 
 THE DEAL
 Your first roast and your first hype are free. After that, one $2.99 payment unlocks every comedian and unlimited roasts and hype — forever. No subscription. No credits. No nonsense.

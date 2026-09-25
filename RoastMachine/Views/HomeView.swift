@@ -296,14 +296,27 @@ struct HomeView: View {
     // MARK: - Actions
 
 #if DEBUG && targetEnvironment(simulator)
-    /// Screenshot rig: `SIMCTL_CHILD_RM_DEMO_PHOTO=/path xcrun simctl launch …`
-    /// drops a photo straight onto the Stage. The simulator has no camera and
-    /// its photo picker is unreliable, so this is how marketing shots get a face.
+    /// Screenshot rig, driven by `SIMCTL_CHILD_*` env vars on `xcrun simctl launch`:
+    /// `RM_DEMO_PHOTO=/path` drops a photo onto the Stage (the simulator has no
+    /// camera and its photo picker is unreliable); `RM_DEMO_MODE=<mode id>` and
+    /// `RM_DEMO_FLAVOR=roast|compliment` preset the panel; `RM_DEMO_AUTORUN=1`
+    /// accepts the consent sheet and fires the shutter.
     private func loadDemoPhotoIfRequested() {
+        let env = ProcessInfo.processInfo.environment
         guard libraryImage == nil,
-              let path = ProcessInfo.processInfo.environment["RM_DEMO_PHOTO"],
+              let path = env["RM_DEMO_PHOTO"],
               let image = UIImage(contentsOfFile: path) else { return }
         libraryImage = image
+        if let id = env["RM_DEMO_MODE"], RoastMode.all.contains(where: { $0.id == id }) {
+            selectedID = id
+        }
+        if let raw = env["RM_DEMO_FLAVOR"], let demoFlavor = RoastFlavor(rawValue: raw) {
+            flavor = demoFlavor
+        }
+        if env["RM_DEMO_AUTORUN"] == "1" {
+            aiConsentGiven = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { capture() }
+        }
     }
 #else
     private func loadDemoPhotoIfRequested() {}

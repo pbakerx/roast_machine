@@ -21,7 +21,7 @@ W, H = 1320, 2868
 # name-stem -> (headline, subline)
 CAPTIONS = {
     "01_stage_classic": ("GET ROASTED",           "14 AI comedians. One big button."),
-    "02_result_roast":  ("IT TALKS BACK",         "Real voices. Emoji punchlines."),
+    "02_result_roast":  ("IT TALKS BACK",         "A real voice rips into your photo."),
     "03_stage_hype":    ("OR GET HYPED",          "Flip the switch for over-the-top compliments."),
     "04_result_hype":   ("ZERO BURNS. ALL LOVE.", "Shakespeare thinks you're a legend."),
     "05_stage_mom":     ("PICK YOUR POISON",      "Angry Chef, Disappointed Mom, Shakespeare & more."),
