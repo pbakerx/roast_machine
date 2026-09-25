@@ -39,7 +39,8 @@ struct RoastScriptService {
     private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let model = "gpt-4o" // vision-capable
 
-    func generateScript(for image: UIImage, mode: RoastMode) async throws -> String {
+    func generateScript(for image: UIImage, mode: RoastMode,
+                        flavor: RoastFlavor = .roast) async throws -> String {
         guard AppConfig.hasOpenAIKey else { throw RoastError.missingOpenAIKey }
         guard let base64 = jpegBase64(from: image) else { throw RoastError.badImage }
 
@@ -48,7 +49,7 @@ struct RoastScriptService {
             "max_tokens": 320,
             "temperature": 0.9,
             "messages": [
-                ["role": "system", "content": mode.fullPrompt()],
+                ["role": "system", "content": mode.fullPrompt(flavor: flavor)],
                 ["role": "user", "content": [
                     ["type": "text", "text": "Here is the old photo. Give me the bit."],
                     ["type": "image_url", "image_url": [

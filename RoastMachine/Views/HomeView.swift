@@ -15,15 +15,16 @@ struct HomeView: View {
     @EnvironmentObject private var store: StoreManager
     @StateObject private var camera = CameraController()
 
-    @State private var selectedID = RoastMode.free[0].id
+    @State private var selectedID = RoastMode.classic.id
+    @State private var flavor: RoastFlavor = .roast
     @State private var libraryImage: UIImage?
     @State private var photoItem: PhotosPickerItem?
     @State private var showPaywall = false
-    /// A locked mode the user tapped while a free premium roast is on offer.
-    @State private var giftMode: RoastMode?
+    @State private var showConsent = false
+    @AppStorage("rm.aiConsentGiven") private var aiConsentGiven = false
 
     private var selectedMode: RoastMode {
-        RoastMode.all.first { $0.id == selectedID } ?? RoastMode.free[0]
+        RoastMode.all.first { $0.id == selectedID } ?? RoastMode.classic
     }
     private var theme: ModeTheme { selectedMode.theme }
 
@@ -44,14 +45,11 @@ struct HomeView: View {
                 FaceGuideOverlay(theme: theme)
             }
 
-            // AI costume props matching the persona: toque for the chef, etc.
-            WearableOverlayView(images: engine.art.stageSet)
-
             VStack(spacing: 0) {
                 topBar
                 Spacer()
-                if store.freeRoastAvailable {
-                    giftBanner
+                if !store.hasEverything {
+                    ticketBanner
                 }
                 controlPanel
             }
@@ -59,26 +57,16 @@ struct HomeView: View {
         .animation(.easeInOut(duration: 0.4), value: selectedID)
         .onAppear {
             camera.start()
-            engine.art.loadStageSet(for: selectedMode)
-        }
-        .onChange(of: selectedID) { _, _ in
-            engine.art.loadStageSet(for: selectedMode)
+            loadDemoPhotoIfRequested()
         }
         .onDisappear { camera.stop() }
         .sheet(isPresented: $showPaywall) { PaywallView().environmentObject(store) }
-        .alert(
-            "🎁 One on the house!",
-            isPresented: Binding(get: { giftMode != nil }, set: { if !$0 { giftMode = nil } }),
-            presenting: giftMode
-        ) { mode in
-            Button("Roast me, \(mode.title)!") {
-                store.acceptFreeRoast(for: mode)
-                selectedID = mode.id
+        .sheet(isPresented: $showConsent) {
+            AIConsentView {
+                aiConsentGiven = true
+                // Fire the shot they were trying to take once the sheet is gone.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { capture() }
             }
-            Button("Unlock everything instead") { showPaywall = true }
-            Button("Maybe later", role: .cancel) {}
-        } message: { mode in
-            Text("Try \(mode.title) free — one roast, no charge. If it stings good, the whole machine is $1.99.")
         }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -96,9 +84,11 @@ struct HomeView: View {
     @ViewBuilder
     private var cameraLayer: some View {
         if let image = libraryImage {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
+            // Overlay on a clear frame so the filled image can't widen the
+            // Stage past the screen and push the chrome offscreen.
+            Color.clear
+                .overlay(Image(uiImage: image).resizable().scaledToFill())
+                .clipped()
                 .ignoresSafeArea()
         } else {
             switch camera.status {
@@ -167,23 +157,18 @@ struct HomeView: View {
     private var controlPanel: some View {
         ZStack(alignment: .top) {
             MetalPanel()
-                .frame(height: 270)
+                .frame(height: 316)
 
             VStack(spacing: 12) {
                 sceneLabel
+                FlavorSwitch(flavor: $flavor)
                 ModeDial(
                     modes: RoastMode.all,
                     selectedID: $selectedID,
-                    isLocked: { !store.isUnlocked($0) },
-                    onSelect: { mode in
-                        if store.isUnlocked(mode) {
-                            selectedID = mode.id
-                        } else if store.freeRoastAvailable {
-                            giftMode = mode
-                        } else {
-                            showPaywall = true
-                        }
-                    },
+                    // Every comedian is pickable; the shutter is what's gated.
+                    // Padlocks light up once this flavor's free run is spent.
+                    isLocked: { _ in !store.canRun(flavor) },
+                    onSelect: { mode in selectedID = mode.id },
                     // Audition any voice — locked ones too; it sells the unlock.
                     onPreview: { mode in
                         Task { await engine.voice.preview(mode) }
@@ -199,21 +184,37 @@ struct HomeView: View {
         .padding(.bottom, 6)
     }
 
-    /// Dangles the occasional free premium roast over the control panel.
-    private var giftBanner: some View {
-        HStack(spacing: 8) {
-            Text("🎁")
-            Text("FREE PREMIUM ROAST — TAP A LOCKED KNOB")
-                .font(.system(size: 11, weight: .heavy, design: .rounded))
-                .tracking(1)
+    /// Shows what's still on the house; once both tastes are spent it turns
+    /// into the unlock pitch.
+    private var ticketBanner: some View {
+        let roast = store.freeRunRemaining(for: .roast)
+        let hype = store.freeRunRemaining(for: .compliment)
+        let label: String
+        switch (roast, hype) {
+        case (true, true):   label = "ON THE HOUSE: 1 ROAST · 1 HYPE"
+        case (true, false):  label = "ON THE HOUSE: 1 ROAST LEFT"
+        case (false, true):  label = "ON THE HOUSE: 1 HYPE LEFT"
+        case (false, false): label = "UNLOCK EVERYTHING — \(store.everythingProduct?.displayPrice ?? "$2.99")"
         }
-        .foregroundStyle(.black)
-        .padding(.horizontal, 14).padding(.vertical, 8)
-        .background(
-            LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing),
-            in: Capsule()
-        )
-        .shadow(color: .orange.opacity(0.7), radius: 10)
+        return Button {
+            Haptics.tap()
+            showPaywall = true
+        } label: {
+            HStack(spacing: 8) {
+                Text(roast || hype ? "🎟️" : "🔓")
+                Text(label)
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(1)
+            }
+            .foregroundStyle(.black)
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(
+                LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing),
+                in: Capsule()
+            )
+            .shadow(color: .orange.opacity(0.7), radius: 10)
+        }
+        .buttonStyle(.plain)
         .padding(.bottom, 8)
     }
 
@@ -234,7 +235,10 @@ struct HomeView: View {
             libraryButton
                 .frame(width: 64)
             Spacer()
-            ShutterButton(tint: theme.primary) { capture() }
+            ShutterButton(tint: flavor == .compliment ? .pink : theme.primary,
+                          symbol: flavor == .compliment ? "heart.fill" : "flame.fill") {
+                capture()
+            }
             Spacer()
             flipButton
                 .frame(width: 64)
@@ -291,7 +295,31 @@ struct HomeView: View {
 
     // MARK: - Actions
 
+#if DEBUG && targetEnvironment(simulator)
+    /// Screenshot rig: `SIMCTL_CHILD_RM_DEMO_PHOTO=/path xcrun simctl launch …`
+    /// drops a photo straight onto the Stage. The simulator has no camera and
+    /// its photo picker is unreliable, so this is how marketing shots get a face.
+    private func loadDemoPhotoIfRequested() {
+        guard libraryImage == nil,
+              let path = ProcessInfo.processInfo.environment["RM_DEMO_PHOTO"],
+              let image = UIImage(contentsOfFile: path) else { return }
+        libraryImage = image
+    }
+#else
+    private func loadDemoPhotoIfRequested() {}
+#endif
+
     private func capture() {
+        // Gate before the photo is taken so a spent free run goes straight
+        // to the pitch instead of firing the flash for nothing.
+        guard store.canRun(flavor) else {
+            showPaywall = true
+            return
+        }
+        guard aiConsentGiven else {
+            showConsent = true
+            return
+        }
         if let image = libraryImage {
             run(image)
             return
@@ -304,10 +332,9 @@ struct HomeView: View {
 
     private func run(_ image: UIImage) {
         let mode = selectedMode
-        // A gifted premium roast is single-use: burn it the moment it fires.
-        if mode.isPremium && !store.hasAllModes && store.trialUnlockedModeID == mode.id {
-            store.consumeFreeRoast()
-        }
-        Task { await engine.run(image: image, mode: mode) }
+        let flavor = flavor
+        // The free taste is single-use: burn it the moment it fires.
+        store.consumeFreeRun(flavor)
+        Task { await engine.run(image: image, mode: mode, flavor: flavor) }
     }
 }

@@ -9,13 +9,19 @@
 
 import SwiftUI
 
+/// Which way the machine is pointed: burn them or build them up.
+/// Free-tier feature — every mode can deliver either.
+enum RoastFlavor: String {
+    case roast
+    case compliment
+}
+
 struct RoastMode: Identifiable, Hashable {
     let id: String
     let title: String
     let subtitle: String
     let systemImage: String
     let tint: Color
-    let isPremium: Bool
 
     /// ElevenLabs prebuilt voice id used to speak this mode.
     let voiceID: String
@@ -41,8 +47,24 @@ extension RoastMode {
     Output ONLY the spoken lines, no stage directions or quotation marks.
     """
 
-    func fullPrompt() -> String {
-        RoastMode.sharedPreamble + "\n\nPERSONA:\n" + personaPrompt
+    /// The same stage, flipped to a hype set: every line is praise.
+    static let complimentPreamble = """
+    You are performing a light-hearted HYPE bit for a stand-up set. \
+    The user has handed you an OLD photo of themselves and asked you to gas them up. \
+    Every single line is an over-the-top, specific, sincere compliment — zero sarcasm, \
+    zero backhanded jokes, no roasting whatsoever. If the persona below says to mock or \
+    roast, ignore that part: stay fully in character, but aim all that energy at praise. \
+    Keep it about what is visible in the picture — the outfit, hair, pose, background, \
+    vibe, era — never about protected characteristics or private facts. \
+    No profanity stronger than "damn". Keep it to roughly 4-6 punchy sentences that sound \
+    great read aloud. Output ONLY the spoken lines, no stage directions or quotation marks.
+    """
+
+    func fullPrompt(flavor: RoastFlavor = .roast) -> String {
+        let preamble = flavor == .compliment
+            ? RoastMode.complimentPreamble
+            : RoastMode.sharedPreamble
+        return preamble + "\n\nPERSONA:\n" + personaPrompt
     }
 
     /// A 3–4 word taste of the persona, spoken by the voice-preview button.
@@ -68,34 +90,30 @@ extension RoastMode {
 
     // MARK: - Catalog
 
-    static let all: [RoastMode] = [free + premium].flatMap { $0 }
+    /// Dial order: the headliner first, then the guest lineup. Every comedian
+    /// is pickable; the shutter is what the store gates.
+    static let all: [RoastMode] = [classic] + guests
 
-    /// Free tier: the headliner act only. Everything else is behind the
-    /// one-time "all modes" unlock.
-    static let free: [RoastMode] = [
-        RoastMode(
-            id: "classic",
-            title: "Classic Roast",
-            subtitle: "A headliner works the crowd",
-            systemImage: "flame.fill",
-            tint: .orange,
-            isPremium: false,
-            voiceID: "pNInz6obpgDQGcFmaJgB", // Adam
-            personaPrompt: """
-            You are a sharp late-night stand-up comedian delivering a friendly roast. \
-            Confident, quick, crowd-working energy. Land a couple of clean burns and a callback.
-            """
-        )
-    ]
+    static let classic = RoastMode(
+        id: "classic",
+        title: "Classic Roast",
+        subtitle: "A headliner works the crowd",
+        systemImage: "flame.fill",
+        tint: .orange,
+        voiceID: "pNInz6obpgDQGcFmaJgB", // Adam
+        personaPrompt: """
+        You are a sharp late-night stand-up comedian delivering a friendly roast. \
+        Confident, quick, crowd-working energy. Land a couple of clean burns and a callback.
+        """
+    )
 
-    static let premium: [RoastMode] = [
+    static let guests: [RoastMode] = [
         RoastMode(
             id: "nature",
             title: "Nature Documentary",
             subtitle: "Narrated in the wild",
             systemImage: "leaf.fill",
             tint: .green,
-            isPremium: true,
             voiceID: "JBFqnCBsd6RMkjVDRZzb", // George (British)
             personaPrompt: """
             You are a hushed, awe-struck British nature-documentary narrator observing a rare \
@@ -110,7 +128,6 @@ extension RoastMode {
             subtitle: "This face is RAW",
             systemImage: "frying.pan.fill",
             tint: .red,
-            isPremium: true,
             voiceID: "VR6AewLTigWG4xSOukaG", // Arnold
             personaPrompt: """
             You are a furious celebrity chef screaming a critique as if the photo were a badly \
@@ -124,7 +141,6 @@ extension RoastMode {
             subtitle: "I'm not mad, just...",
             systemImage: "cup.and.saucer.fill",
             tint: .pink,
-            isPremium: true,
             voiceID: "21m00Tcm4TlvDq8ikWAM", // Rachel
             personaPrompt: """
             You are a passive-aggressive mother who is "not mad, just disappointed". Sighs, \
@@ -138,7 +154,6 @@ extension RoastMode {
             subtitle: "Thou clay-brained lout",
             systemImage: "book.closed.fill",
             tint: .purple,
-            isPremium: true,
             voiceID: "ErXwobaYiN019PkySvjV", // Antoni
             personaPrompt: """
             You are a theatrical Elizabethan bard delivering ornate, iambic insults in \
@@ -151,7 +166,6 @@ extension RoastMode {
             subtitle: "Bars, not burns",
             systemImage: "music.mic",
             tint: .indigo,
-            isPremium: true,
             voiceID: "TxGEqnHWrfWFTfGW9XjX", // Josh
             personaPrompt: """
             You are a battle rapper spitting a short, rhythmic diss verse. Internal rhyme, \
@@ -164,7 +178,6 @@ extension RoastMode {
             subtitle: "Pure hype, zero burns",
             systemImage: "sparkles",
             tint: .yellow,
-            isPremium: true,
             voiceID: "EXAVITQu4vr4xnSDxMaL", // Bella
             personaPrompt: """
             You are the world's most enthusiastic hype-person. Overflowing, sincere-sounding \
@@ -178,7 +191,6 @@ extension RoastMode {
             subtitle: "The face reveals all",
             systemImage: "moon.stars.fill",
             tint: .teal,
-            isPremium: true,
             voiceID: "AZnzlk1XvdvUeBnXmlld", // Domi
             personaPrompt: """
             You are a dramatic psychic reading someone's destiny from their photo. Mystical, \
@@ -192,7 +204,6 @@ extension RoastMode {
             subtitle: "Drop and give me 20",
             systemImage: "figure.strengthtraining.traditional",
             tint: .brown,
-            isPremium: true,
             voiceID: "2EiwWnXFnvU5JabPnv8n", // Clyde
             personaPrompt: """
             You are a barking military drill sergeant chewing out a fresh recruit. LOUD, clipped, \
@@ -202,11 +213,10 @@ extension RoastMode {
         ),
         RoastMode(
             id: "linkedin",
-            title: "Corporate LinkedIn",
+            title: "Corporate Influencer",
             subtitle: "Excited to announce…",
             systemImage: "briefcase.fill",
             tint: .blue,
-            isPremium: true,
             voiceID: "onwK4e9ZLuTAKqWW03F9", // Daniel
             personaPrompt: """
             You are an insufferable LinkedIn thought-leader turning the photo into a cringey \
@@ -220,7 +230,6 @@ extension RoastMode {
             subtitle: "Wake up, sheeple",
             systemImage: "eye.trianglebadge.exclamationmark.fill",
             tint: .mint,
-            isPremium: true,
             voiceID: "yoZ06aMxZJJ28mfd3POQ", // Sam
             personaPrompt: """
             You are a frantic conspiracy theorist convinced the photo hides secret evidence. \
@@ -234,7 +243,6 @@ extension RoastMode {
             subtitle: "Smooth… ish",
             systemImage: "heart.circle.fill",
             tint: .red,
-            isPremium: true,
             voiceID: "IKne3meq5aSn9XLyUdCD", // Charlie
             personaPrompt: """
             You are an overconfident flirt firing off cheesy pickup lines inspired by what they're \
@@ -248,7 +256,6 @@ extension RoastMode {
             subtitle: "Swipe right on this",
             systemImage: "text.badge.star",
             tint: .pink,
-            isPremium: true,
             voiceID: "XrExE9yKIg1WjnnlVkGX", // Matilda
             personaPrompt: """
             You are writing a hilarious but flattering dating-app bio in first person based on the \
@@ -262,7 +269,6 @@ extension RoastMode {
             subtitle: "If it's an animal…",
             systemImage: "pawprint.fill",
             tint: .orange,
-            isPremium: true,
             voiceID: "jBpfuIE2acCO8z3wKNLl", // Gigi
             personaPrompt: """
             You are voicing the inner monologue of the subject in the photo as if it were a \

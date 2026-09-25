@@ -198,10 +198,70 @@ struct ModeDial: View {
     }
 }
 
+// MARK: - Flavor switch
+
+/// Two-position mechanical rocker: point the machine at a burn or a hype-up.
+struct FlavorSwitch: View {
+    @Binding var flavor: RoastFlavor
+    @Namespace private var thumb
+
+    var body: some View {
+        HStack(spacing: 4) {
+            segment(.roast, symbol: "flame.fill", label: "ROAST",
+                    colors: [.orange, .red])
+            segment(.compliment, symbol: "heart.fill", label: "HYPE",
+                    colors: [.pink, .purple])
+        }
+        .padding(4)
+        .background(
+            Capsule()
+                .fill(Color(white: 0.08))
+                .overlay(
+                    Capsule().stroke(
+                        LinearGradient(colors: [.black.opacity(0.7), .white.opacity(0.25)],
+                                       startPoint: .top, endPoint: .bottom),
+                        lineWidth: 1.5
+                    )
+                )
+        )
+    }
+
+    private func segment(_ value: RoastFlavor, symbol: String, label: String,
+                         colors: [Color]) -> some View {
+        let selected = flavor == value
+        return Button {
+            guard flavor != value else { return }
+            Haptics.thunk()
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { flavor = value }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .heavy))
+                Text(label)
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .tracking(1.5)
+            }
+            .foregroundStyle(selected ? .white : Color(white: 0.55))
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background {
+                if selected {
+                    Capsule()
+                        .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+                        .overlay(Capsule().stroke(.white.opacity(0.35), lineWidth: 1))
+                        .shadow(color: colors[0].opacity(0.7), radius: 8)
+                        .matchedGeometryEffect(id: "thumb", in: thumb)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Shutter
 
 struct ShutterButton: View {
     let tint: Color
+    var symbol: String = "flame.fill"
     var action: () -> Void
     @State private var pressed = false
 
@@ -219,7 +279,7 @@ struct ShutterButton: View {
                     .frame(width: 60, height: 60)
                     .overlay(Circle().stroke(.white.opacity(0.4), lineWidth: 1))
                     .shadow(color: tint.opacity(0.8), radius: pressed ? 4 : 14)
-                Image(systemName: "flame.fill")
+                Image(systemName: symbol)
                     .font(.system(size: 22, weight: .heavy))
                     .foregroundStyle(.white)
             }

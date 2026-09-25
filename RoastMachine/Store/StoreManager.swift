@@ -2,11 +2,10 @@
 //  StoreManager.swift
 //  RoastMachine
 //
-//  StoreKit 2 wrapper for the freemium model:
-//    - Classic Roast is free forever.
-//    - One $1.99 non-consumable ("All Modes") unlocks the whole machine.
-//    - Every few launches, free users get dangled ONE free premium roast
-//      as a taste of the good stuff.
+//  StoreKit 2 wrapper for the simplest possible model:
+//    - Every install gets ONE free roast and ONE free hype (any comedian).
+//    - One $2.99 non-consumable ("Everything") unlocks unlimited runs of
+//      every comedian, forever. No subscriptions, no credit packs.
 //
 
 import StoreKit
@@ -14,13 +13,9 @@ import StoreKit
 @MainActor
 final class StoreManager: ObservableObject {
 
-    // Product identifiers — must match Subscriptions.storekit / App Store Connect.
+    // Product identifier — must match Subscriptions.storekit / App Store Connect.
     enum ProductID {
-        static let allModes = "AechTech.RoastMachine.allmodes"
-        static let voices   = "AechTech.RoastMachine.voices"
-        static let credits  = "AechTech.RoastMachine.credits20"
-
-        static let all: [String] = [allModes, voices, credits]
+        static let everything = "AechTech.RoastMachine.allmodes"
     }
 
     @Published private(set) var products: [Product] = []
@@ -30,9 +25,21 @@ final class StoreManager: ObservableObject {
     @Published var didAttemptLoad = false
     @Published var lastError: String?
 
+    /// The two free tastes. Persisted so they survive relaunches.
+    @Published private(set) var freeRoastUsed: Bool
+    @Published private(set) var freeHypeUsed: Bool
+
+    private let defaults: UserDefaults
     private var updatesTask: Task<Void, Never>?
 
-    init() {
+    private static let freeRoastKey = "rm.freeRoastUsed"
+    private static let freeHypeKey = "rm.freeHypeUsed"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        freeRoastUsed = defaults.bool(forKey: Self.freeRoastKey)
+        freeHypeUsed = defaults.bool(forKey: Self.freeHypeKey)
+
         // Listen for transactions that arrive outside an explicit purchase (e.g. restores).
         updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
@@ -45,56 +52,52 @@ final class StoreManager: ObservableObject {
 
     // MARK: - Entitlement helpers
 
-    /// DEV ONLY: unlock every premium mode + voice without a purchase.
-    /// Keep `false` so the real paywall + gift flow run everywhere; flip to
-    /// `true` only for local UI work that shouldn't touch the store.
+    /// DEV ONLY: unlock everything without a purchase.
+    /// Keep `false` so the real paywall runs everywhere; flip to `true`
+    /// only for local UI work that shouldn't touch the store.
     static let devUnlockEverything = false
 
-    var hasAllModes: Bool {
-        Self.devUnlockEverything || ownedProductIDs.contains(ProductID.allModes)
-    }
-    var hasPremiumVoices: Bool {
-        Self.devUnlockEverything || ownedProductIDs.contains(ProductID.voices)
+    var hasEverything: Bool {
+        Self.devUnlockEverything || Self.demoUnlock
+            || ownedProductIDs.contains(ProductID.everything)
     }
 
-    /// Whether a given mode is playable right now.
-    func isUnlocked(_ mode: RoastMode) -> Bool {
-        mode.isPremium ? (hasAllModes || trialUnlockedModeID == mode.id) : true
+#if DEBUG && targetEnvironment(simulator)
+    /// Screenshot rig: `SIMCTL_CHILD_RM_DEMO_UNLOCK=1 xcrun simctl launch …`
+    /// shows the paid experience without touching the store.
+    private static let demoUnlock = ProcessInfo.processInfo.environment["RM_DEMO_UNLOCK"] == "1"
+#else
+    private static let demoUnlock = false
+#endif
+
+    var everythingProduct: Product? {
+        products.first { $0.id == ProductID.everything }
     }
 
-    // MARK: - Occasional free premium roast
-
-    /// One premium mode temporarily unlocked as a free taste. Cleared after use.
-    @Published private(set) var trialUnlockedModeID: String?
-    /// True when this launch is dangling a free premium roast the user hasn't taken yet.
-    @Published private(set) var freeRoastAvailable = false
-
-    private static let launchCountKey = "rm.launchCount"
-
-    /// Call once per launch. Every few launches, free users get offered a
-    /// single premium roast on the house — the taste that sells the unlock.
-    func recordLaunch() {
-        guard !hasAllModes else { return }
-        let defaults = UserDefaults.standard
-        let count = defaults.integer(forKey: Self.launchCountKey) + 1
-        defaults.set(count, forKey: Self.launchCountKey)
-        // First-ever launch and every 3rd launch after: dangle the gift.
-        freeRoastAvailable = (count == 1) || (count % 3 == 0)
+    /// Whether the free taste for this flavor is still on the table.
+    func freeRunRemaining(for flavor: RoastFlavor) -> Bool {
+        switch flavor {
+        case .roast:      return !freeRoastUsed
+        case .compliment: return !freeHypeUsed
+        }
     }
 
-    /// User tapped the gift: unlock this one premium mode for a single roast.
-    func acceptFreeRoast(for mode: RoastMode) {
-        trialUnlockedModeID = mode.id
-        freeRoastAvailable = false
+    /// Whether the shutter should fire for this flavor right now.
+    func canRun(_ flavor: RoastFlavor) -> Bool {
+        hasEverything || freeRunRemaining(for: flavor)
     }
 
-    /// The free roast has been fired — back behind the paywall it goes.
-    func consumeFreeRoast() {
-        trialUnlockedModeID = nil
-    }
-
-    func product(for id: String) -> Product? {
-        products.first { $0.id == id }
+    /// The free taste has been fired — burn it. No-op once everything is owned.
+    func consumeFreeRun(_ flavor: RoastFlavor) {
+        guard !hasEverything else { return }
+        switch flavor {
+        case .roast:
+            freeRoastUsed = true
+            defaults.set(true, forKey: Self.freeRoastKey)
+        case .compliment:
+            freeHypeUsed = true
+            defaults.set(true, forKey: Self.freeHypeKey)
+        }
     }
 
     // MARK: - Loading
@@ -103,8 +106,7 @@ final class StoreManager: ObservableObject {
         isLoadingProducts = true
         defer { isLoadingProducts = false; didAttemptLoad = true }
         do {
-            let loaded = try await Product.products(for: ProductID.all)
-            products = loaded.sorted { $0.price < $1.price }
+            products = try await Product.products(for: [ProductID.everything])
             if products.isEmpty {
                 lastError = "No products came back. In Xcode: Edit Scheme ▸ Run ▸ Options ▸ StoreKit Configuration ▸ select Subscriptions.storekit."
             }

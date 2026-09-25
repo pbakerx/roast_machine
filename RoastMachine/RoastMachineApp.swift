@@ -19,7 +19,6 @@ struct RoastMachineApp: App {
                 .task {
                     await store.loadProducts()
                     await store.refreshEntitlements()
-                    store.recordLaunch()
                 }
         }
     }

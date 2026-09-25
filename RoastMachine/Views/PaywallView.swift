@@ -2,7 +2,7 @@
 //  PaywallView.swift
 //  RoastMachine
 //
-//  One flashy $1.99 unlock for the whole machine. No subscriptions.
+//  One flashy $2.99 unlock for the whole machine. No subscriptions.
 //
 
 import SwiftUI
@@ -11,11 +11,6 @@ import StoreKit
 struct PaywallView: View {
     @EnvironmentObject private var store: StoreManager
     @Environment(\.dismiss) private var dismiss
-    @State private var flamePulse = false
-
-    private var allModesProduct: Product? {
-        store.product(for: StoreManager.ProductID.allModes)
-    }
 
     var body: some View {
         NavigationStack {
@@ -24,7 +19,7 @@ struct PaywallView: View {
                     header
                     modeGrid
 
-                    if let product = allModesProduct {
+                    if let product = store.everythingProduct {
                         buyButton(product)
                     } else if store.isLoadingProducts || !store.didAttemptLoad {
                         ProgressView("Loading store…")
@@ -39,10 +34,14 @@ struct PaywallView: View {
                     .font(.subheadline)
                     .tint(.white.opacity(0.8))
 
-                    Text("Classic Roast is free forever. This is a one-time unlock — not a subscription, no nonsense.")
+                    Text("Your first roast and your first hype are on the house. After that, one payment unlocks everything — not a subscription, no nonsense.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
+
+                    Link("Privacy & AI Policy", destination: AppConfig.privacyPolicyURL)
+                        .font(.caption)
+                        .tint(.white.opacity(0.6))
                 }
                 .padding()
             }
@@ -67,7 +66,6 @@ struct PaywallView: View {
             } message: {
                 Text(store.lastError ?? "")
             }
-            .onAppear { flamePulse = true }
         }
     }
 
@@ -79,14 +77,15 @@ struct PaywallView: View {
                     LinearGradient(colors: [.yellow, .orange, .red],
                                    startPoint: .top, endPoint: .bottom)
                 )
-                .shadow(color: .orange.opacity(0.8), radius: flamePulse ? 26 : 10)
-                .scaleEffect(flamePulse ? 1.06 : 0.96)
-                .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: flamePulse)
+                .shadow(color: .orange.opacity(0.8), radius: 18)
+                // A symbol effect pulses in place; a repeat-forever scale
+                // animation also catches the sheet's layout and drifts sideways.
+                .symbolEffect(.breathe, options: .repeating)
 
             Text("THE WHOLE MACHINE")
                 .font(.system(size: 26, weight: .black, design: .rounded))
                 .tracking(1)
-            Text("Every persona. Every voice. Every scene.\nTwo bucks. Forever.")
+            Text("Every comedian. Unlimited roasts. Unlimited hype.\nOne payment. Forever.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -94,10 +93,10 @@ struct PaywallView: View {
         .padding(.top, 8)
     }
 
-    /// Every locked persona, shown off like a lineup poster.
+    /// The whole lineup, shown off like a poster.
     private var modeGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
-            ForEach(RoastMode.premium) { mode in
+            ForEach(RoastMode.all) { mode in
                 VStack(spacing: 6) {
                     Image(systemName: mode.systemImage)
                         .font(.system(size: 22, weight: .semibold))

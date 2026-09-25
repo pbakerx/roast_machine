@@ -23,20 +23,19 @@ final class RoastEngine: ObservableObject {
     @Published var script: String = ""
     @Published private(set) var audio: Data?
     @Published private(set) var mode: RoastMode?
+    @Published private(set) var flavor: RoastFlavor = .roast
     @Published private(set) var image: UIImage?
 
     let voice = VoiceService()
-    let art = RoastArtService()
     private let scripts = RoastScriptService()
     private var forwarders: [AnyCancellable] = []
 
     init() {
         // Nested ObservableObjects don't propagate through @EnvironmentObject —
-        // views observing the engine would never re-render for playback progress
-        // or arriving art. Forward their change notifications through ours.
+        // views observing the engine would never re-render for playback progress.
+        // Forward their change notifications through ours.
         forwarders = [
-            voice.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() },
-            art.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+            voice.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         ]
     }
 
@@ -47,20 +46,17 @@ final class RoastEngine: ObservableObject {
         }
     }
 
-    func run(image: UIImage, mode: RoastMode) async {
+    func run(image: UIImage, mode: RoastMode, flavor: RoastFlavor = .roast) async {
         self.image = image
         self.mode = mode
+        self.flavor = flavor
         self.audio = nil
         self.script = ""
 
         do {
             phase = .writing
-            let text = try await scripts.generateScript(for: image, mode: mode)
+            let text = try await scripts.generateScript(for: image, mode: mode, flavor: flavor)
             script = text
-
-            // Art generates while the voice synthesizes, so most images land
-            // mid-playback and visibly stream onto the screen.
-            art.generate(for: text, mode: mode)
 
             phase = .voicing
             let data = try await voice.synthesize(text: text, voiceID: mode.voiceID)
@@ -81,7 +77,6 @@ final class RoastEngine: ObservableObject {
 
     func reset() {
         voice.stop()
-        art.cancel()
         phase = .idle
         script = ""
         audio = nil

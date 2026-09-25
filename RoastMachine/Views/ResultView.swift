@@ -29,24 +29,10 @@ struct ResultView: View {
         RoastStickers.events(for: engine.script)
     }
 
-    /// Costume props reveal in waves across the playback so the look builds
-    /// with the bit. A prop arriving after its cue pops in immediately.
-    private var revealedSlots: Set<WearableSlot> {
-        let cues: [WearableSlot: Double] = [.head: 0.05, .eyes: 0.3, .mouth: 0.55, .neck: 0.75]
-        let progress = engine.voice.playbackFraction
-        return Set(cues.filter { progress >= $0.value }.keys)
-    }
-
     var body: some View {
         ZStack {
             photoLayer
             scrim
-
-            // Roast-matched costume props snap onto the face as the bit plays.
-            if engine.image != nil {
-                WearableOverlayView(images: engine.art.wearables,
-                                    revealed: revealedSlots)
-            }
 
             if case .ready = engine.phase {
                 StickerStreamLayer(events: stickerEvents,
@@ -244,7 +230,7 @@ struct ResultView: View {
                 .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
 
-            if !store.hasAllModes {
+            if !store.hasEverything {
                 upsellRibbon
             }
         }
@@ -276,7 +262,7 @@ struct ResultView: View {
         Button {
             showPaywall = true
         } label: {
-            Text("😈 13 more voices want a word with you — $1.99")
+            Text("😈 Unlimited roasts, all 14 comedians — \(store.everythingProduct?.displayPrice ?? "$2.99")")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14).padding(.vertical, 8)
@@ -377,8 +363,8 @@ struct ResultView: View {
 
 // MARK: - Sticker stream
 
-/// Big emoji graphics that pop in as their word lands in the audio — the
-/// quick punctuation around the star of the show, the costume overlays.
+/// Big emoji graphics that pop in as their word lands in the audio —
+/// quick visual punctuation for the bit.
 private struct StickerStreamLayer: View {
     let events: [RoastStickers.Event]
     let progress: Double

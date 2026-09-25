@@ -5,49 +5,19 @@
   ],
   "products" : [
     {
-      "displayPrice" : "1.99",
+      "displayPrice" : "2.99",
       "familyShareable" : false,
       "internalID" : "RM0000000001",
       "localizations" : [
         {
-          "description" : "Unlock every roast + narration mode: Gordon Ramsay, Disappointed Mom, Shakespeare, Diss Track and more.",
-          "displayName" : "Roast Pack — All Modes",
+          "description" : "Unlimited roasts and hype from every comedian: Angry Chef, Disappointed Mom, Shakespeare, Diss Track and more. One payment, forever.",
+          "displayName" : "Everything",
           "locale" : "en_US"
         }
       ],
       "productID" : "AechTech.RoastMachine.allmodes",
-      "referenceName" : "All Modes Unlock",
+      "referenceName" : "Everything Unlock",
       "type" : "NonConsumable"
-    },
-    {
-      "displayPrice" : "0.99",
-      "familyShareable" : false,
-      "internalID" : "RM0000000002",
-      "localizations" : [
-        {
-          "description" : "Unlock the premium ElevenLabs celebrity-grade voices for extra-savage delivery.",
-          "displayName" : "Premium Voices",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "AechTech.RoastMachine.voices",
-      "referenceName" : "Premium Voices",
-      "type" : "NonConsumable"
-    },
-    {
-      "displayPrice" : "0.99",
-      "familyShareable" : false,
-      "internalID" : "RM0000000003",
-      "localizations" : [
-        {
-          "description" : "A pack of 20 extra roasts to keep the burns coming.",
-          "displayName" : "20 Roast Credits",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "AechTech.RoastMachine.credits20",
-      "referenceName" : "20 Roast Credits",
-      "type" : "Consumable"
     }
   ],
   "settings" : {

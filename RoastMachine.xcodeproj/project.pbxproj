@@ -17,10 +17,12 @@
 		1000000000000000000000C0 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		1000000000000000000000D0 /* RoastMachine-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "RoastMachine-Info.plist"; sourceTree = "<group>"; };
 		1000000000000000000000F0 /* RoastMachine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoastMachine.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2000000000000000000000F0 /* RoastMachineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RoastMachineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1000000000000000000000E0 /* RoastMachine */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = RoastMachine; sourceTree = "<group>"; };
+		2000000000000000000000E0 /* RoastMachineTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = RoastMachineTests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -29,6 +31,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				1000000000000000000000A1 /* StoreKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2000000000000000000000100 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -42,6 +51,7 @@
 				1000000000000000000000D0 /* RoastMachine-Info.plist */,
 				1000000000000000000000B0 /* Subscriptions.storekit */,
 				1000000000000000000000E0 /* RoastMachine */,
+				2000000000000000000000E0 /* RoastMachineTests */,
 				1000000000000000000000210 /* Products */,
 				1000000000000000000000220 /* Frameworks */,
 			);
@@ -51,6 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				1000000000000000000000F0 /* RoastMachine.app */,
+				2000000000000000000000F0 /* RoastMachineTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -86,7 +97,45 @@
 			productReference = 1000000000000000000000F0 /* RoastMachine.app */;
 			productType = "com.apple.product-type.application";
 		};
+		2000000000000000000000300 /* RoastMachineTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2000000000000000000000310 /* Build configuration list for PBXNativeTarget "RoastMachineTests" */;
+			buildPhases = (
+				2000000000000000000000510 /* Sources */,
+				2000000000000000000000100 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2000000000000000000000D1 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				2000000000000000000000E0 /* RoastMachineTests */,
+			);
+			name = RoastMachineTests;
+			productName = RoastMachineTests;
+			productReference = 2000000000000000000000F0 /* RoastMachineTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		2000000000000000000000D2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1000000000000000000000400 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1000000000000000000000300;
+			remoteInfo = RoastMachine;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		2000000000000000000000D1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1000000000000000000000300 /* RoastMachine */;
+			targetProxy = 2000000000000000000000D2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		1000000000000000000000400 /* Project object */ = {
@@ -98,6 +147,10 @@
 				TargetAttributes = {
 					1000000000000000000000300 = {
 						CreatedOnToolsVersion = 16.0;
+					};
+					2000000000000000000000300 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 1000000000000000000000300;
 					};
 				};
 			};
@@ -116,6 +169,7 @@
 			projectRoot = "";
 			targets = (
 				1000000000000000000000300 /* RoastMachine */,
+				2000000000000000000000300 /* RoastMachineTests */,
 			);
 		};
 /* End PBXProject section */
@@ -133,6 +187,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1000000000000000000000510 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2000000000000000000000510 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -268,7 +329,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 55Y3LX4J5J;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -289,7 +350,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -300,7 +361,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 55Y3LX4J5J;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -321,7 +382,43 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		2000000000000000000000800 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 55Y3LX4J5J;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = AechTech.RoastMachineTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RoastMachine.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RoastMachine";
+			};
+			name = Debug;
+		};
+		2000000000000000000000810 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 55Y3LX4J5J;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = AechTech.RoastMachineTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RoastMachine.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RoastMachine";
 			};
 			name = Release;
 		};
@@ -333,6 +430,15 @@
 			buildConfigurations = (
 				1000000000000000000000800 /* Debug */,
 				1000000000000000000000810 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2000000000000000000000310 /* Build configuration list for PBXNativeTarget "RoastMachineTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2000000000000000000000800 /* Debug */,
+				2000000000000000000000810 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
