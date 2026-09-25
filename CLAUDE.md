@@ -4,8 +4,10 @@ Context for AI coding assistants working on this project.
 
 ## What this app is
 An iOS "roast machine": the user points the camera at their face (or picks a
-photo), chooses a comedic persona ("mode"), and the app speaks a roast/compliment
-out loud. Pipeline: **OpenAI `gpt-4o` vision → roast script → ElevenLabs TTS → playback.**
+photo), chooses a comedic persona ("mode"), flips a ROAST/HYPE rocker, and the
+app speaks a roast — or an over-the-top compliment — out loud.
+Pipeline: **OpenAI `gpt-4o` vision → script → ElevenLabs TTS → playback**, with
+emoji stickers popping in as their words land.
 
 ## ⚠️ Canonical location (read first)
 - **Work here:** `/Users/philipbaker/Software Development/RoastMachine 2.0` (non-cloud drive, this repo).
@@ -14,75 +16,91 @@ out loud. Pipeline: **OpenAI `gpt-4o` vision → roast script → ElevenLabs TTS
   build confusion. If Xcode opens a project titled RoastMachine, confirm the path
   is under **Software Development** before building.
 
-## Build & run
-1. Open `RoastMachine.xcodeproj` (Xcode 16, objectVersion 70, iOS 18.5, Swift 5).
+## Build, run, test
+1. Open `RoastMachine.xcodeproj` (Xcode 26, objectVersion 70, iOS 18.5 target, Swift 5). iPhone-only, portrait-only.
 2. API keys live in `Secrets.xcconfig` (git-ignored) and flow into the app via
    `RoastMachine-Info.plist` → read in `AppConfig.swift` from `Bundle.main.infoDictionary`.
-   Keys: `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `GEMINI_API_KEY` (source of truth:
-   `~/Software Development/MasterTechNotesForClaude/secret.txt`, "Gemini:" line).
+   Keys: `OPENAI_API_KEY`, `ELEVENLABS_API_KEY` (source of truth:
+   `~/Software Development/MasterTechNotesForClaude/secret.txt`).
 3. Signing: team `55Y3LX4J5J`, bundle id `AechTech.RoastMachine`, automatic signing.
-4. StoreKit testing: the **shared scheme** (`xcshareddata/xcschemes/RoastMachine.xcscheme`)
-   already pins `Subscriptions.storekit`, so Xcode-launched runs have a working local
-   store. Home-screen launches on a device need the real IAP in App Store Connect
-   (product id `AechTech.RoastMachine.allmodes`, $1.99 non-consumable) before
-   sandbox purchases succeed.
+   Bump `CURRENT_PROJECT_VERSION` for every App Store Connect upload.
+4. Tests: `RoastMachineTests` (unit, hosted in the app; folder-synced) — prompt
+   assembly, sticker stream, store gating. Run:
+   `xcodebuild -project RoastMachine.xcodeproj -scheme RoastMachine -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.5' test`
+5. StoreKit: the **shared scheme** pins `Subscriptions.storekit` for Xcode-launched
+   runs. Apps launched any other way (`simctl launch`, TestFlight, device) hit the
+   real sandbox product in App Store Connect.
+
+## Monetization
+- Every install gets **one free roast and one free hype** (any comedian). Flags
+  persist in UserDefaults (`rm.freeRoastUsed`, `rm.freeHypeUsed`).
+- After that the shutter opens the paywall: one **$2.99 non-consumable
+  "Everything"** (`AechTech.RoastMachine.allmodes`) unlocks unlimited runs of all
+  14 comedians forever. No subscriptions, no credits.
+- `StoreManager.devUnlockEverything` stays **`false`**. Only flip locally for UI work.
 
 ## Architecture (`RoastMachine/`)
-- `RoastMachineApp.swift` — entry; owns `StoreManager`.
-- `Models/AppConfig.swift` — reads API keys.
-- `Models/RoastMode.swift` — 14 modes (1 free "classic" + 13 premium): persona prompt + ElevenLabs voice id + icon + `previewLine`.
+- `RoastMachineApp.swift` — entry; owns `StoreManager`, loads products + entitlements.
+- `Models/AppConfig.swift` — API keys + `privacyPolicyURL`.
+- `Models/RoastMode.swift` — 14 modes (`classic` + 13 `guests`): persona prompt,
+  ElevenLabs voice id, icon, `previewLine`. `RoastFlavor` (`.roast` / `.compliment`)
+  picks `sharedPreamble` or `complimentPreamble` in `fullPrompt(flavor:)`.
 - `Models/ModeTheme.swift` — per-mode "scene" (colors, painted backdrop image name, face-guide shape, hint).
-- `Models/RoastStickers.swift` — transcript → timed emoji sticker events (keyword lexicon, deterministic placement).
-- `Services/RoastScriptService.swift` — OpenAI vision → roast text.
-- `Services/VoiceService.swift` — ElevenLabs TTS + AVAudioPlayer; publishes `playbackFraction` (drives sticker stream); voice previews cached per voice in Caches.
-- `Services/RoastEngine.swift` — `@MainActor` pipeline orchestrator + phase state; owns `RoastArtService`.
-- `Services/RoastArtService.swift` — AI wearable costume props: GPT-4o-mini picks
-  2-3 gag props that riff on the roast (slots head/eyes/mouth/neck), Gemini
-  (`gemini-2.5-flash-image`, `responseModalities: [IMAGE]`, `x-goog-api-key`)
-  renders each on solid #00FF00, chroma-key + de-spill makes them transparent.
-  Stage preview uses fixed persona props cached per mode in Caches. 45s timeout,
-  1 retry, silent failure. Fan-out pattern from the Brock site's
-  `share-idea-demo` branch — study only, never modify that repo.
+- `Models/RoastStickers.swift` — transcript → timed emoji sticker events (keyword
+  lexicon incl. era/style/hype words, deterministic placement, max 12, ≥5% spacing).
+- `Services/RoastScriptService.swift` — OpenAI vision → script for a mode + flavor.
+- `Services/VoiceService.swift` — ElevenLabs TTS + AVAudioPlayer; publishes `playbackFraction` (drives stickers); voice previews cached in Caches.
+- `Services/RoastEngine.swift` — `@MainActor` pipeline orchestrator + phase state;
+  forwards `VoiceService` change notifications.
 - `Services/VideoExporter.swift` — photo + audio + stickers → shareable 1080×1920 MP4.
-- `Store/StoreManager.swift` — StoreKit 2 freemium + occasional free-premium-roast gift (`recordLaunch`/`acceptFreeRoast`/`consumeFreeRoast`).
-- `Views/RootView.swift` — nav; pushes ResultView when a roast starts.
-- `Views/HomeView.swift` — the **Stage**: camera-first, full-screen preview, themed
-  face overlay, costume overlay, gift banner, mechanical control panel.
-- `Views/StageComponents.swift` — tactile UI kit: `MetalPanel`, `ModeDial` (knurled
-  knobs + voice-preview badges), `ShutterButton`, `FaceGuideOverlay`, `ThematicBackdrop`
-  (painted image w/ procedural fallback), `SceneScrim`, `Haptics`.
-- `Views/CostumeOverlay.swift` — `WearableOverlayView` (transparent AI props anchored
-  to face-guide slots with pop-in wobble; timed reveal via `revealed`) + `EmberField`.
-- `Views/LivePortraitView.swift` — houses `CameraController` + `CameraPreview` (AVCaptureSession) reused by the Stage.
-- `Views/ResultView.swift` — audio-first show: full-frame photo, streamed stickers
-  (emoji instantly, Gemini art card pins in over it when ready), CRANK IT UP banner,
-  huge TRY AGAIN capsule 5s into playback, transcript demoted to a sheet,
-  video-first share.
-- `Views/ImagePicker.swift` — `ShareSheet` (+ legacy `CameraPicker`, currently unused).
+- `Store/StoreManager.swift` — StoreKit 2: free-run flags, `canRun(flavor)`,
+  `consumeFreeRun`, purchase/restore.
+- `Views/RootView.swift` — nav; pushes ResultView when a run starts.
+- `Views/HomeView.swift` — the **Stage**: camera-first, themed face guide, ticket
+  banner (free runs left / unlock pitch), mechanical control panel. Shutter gates
+  on `store.canRun` → paywall, then on AI consent → `AIConsentView`.
+- `Views/AIConsentView.swift` — one-time "Before the Show" disclosure + permission
+  (App Review 5.1.2(i): third-party AI data sharing). Stored in `rm.aiConsentGiven`.
+- `Views/StageComponents.swift` — tactile UI kit: `MetalPanel`, `ModeDial`,
+  `FlavorSwitch` (ROAST/HYPE rocker), `ShutterButton`, `FaceGuideOverlay`,
+  `ThematicBackdrop`, `SceneScrim`, `Haptics`.
+- `Views/EmberField.swift` — drifting embers for the Classic stage.
+- `Views/LivePortraitView.swift` — `CameraController` + `CameraPreview` (AVCaptureSession).
+- `Views/ResultView.swift` — audio-first show: full-frame photo, sticker stream,
+  CRANK IT UP banner, TRY AGAIN capsule 5s in, transcript sheet, video-first share.
+- `Views/PaywallView.swift` — lineup grid, one buy button, restore, policy link.
+- `Views/ImagePicker.swift` — `ShareSheet` (+ legacy `CameraPicker`, unused).
+
+## Web, listing, screenshots
+- `docs/` — GitHub Pages site: `index.html` (support) and `privacy.html`
+  (Privacy & AI Policy) at `https://pbakerx.github.io/roast_machine/`.
+- `marketing/appstore-metadata.md` — listing copy, keywords, privacy-label answers,
+  IAP fields, App Review notes. Keep in sync with the app. No celebrity names or
+  third-party trademarks in titles/metadata (guideline 5.2.1).
+- Screenshots (6.9", 1320×2868): `scripts/make_demo_portrait.py` draws the
+  synthetic demo face (`marketing/demo_portrait.jpg`); `scripts/frame_screenshots.py`
+  frames raw captures into `marketing/screenshots/`.
+- Simulator screenshot rig (DEBUG + simulator only, compiled out of Release):
+  `SIMCTL_CHILD_RM_DEMO_PHOTO=<jpg>` drops a photo onto the Stage (the sim has no
+  camera and `simctl addmedia` crashes on Xcode 26.6); `SIMCTL_CHILD_RM_DEMO_UNLOCK=1`
+  shows the paid experience.
 
 ## Art pipeline
 Backdrops (`Assets.xcassets/Backdrops/backdrop_<modeid>`) and the app icon are
-generated by Python/Pillow scripts (design language: "Footlight Pop" — lit from
-below, bold silhouettes, violet shadows); scripts live in the session scratchpad.
-Costume props are generated at runtime by `RoastArtService` (green-screen Gemini
-→ chroma key) — the old hand-drawn Costumes catalog was removed.
+generated by Python/Pillow in the "Footlight Pop" design language (lit from
+below, bold silhouettes, violet shadows). There is no runtime image generation.
 
-## Important flags & conventions
-- **Dev unlock:** `StoreManager.devUnlockEverything` is **`false`** — the paywall and
-  gift-roast flow are live everywhere. Only flip to `true` temporarily for UI work.
-- Content safety: every roast is framed by `RoastMode.sharedPreamble` as a comedian
-  practising on an *old photo of the user* — forbids cruelty, protected
-  characteristics, profanity. Users should only roast their own photos (App Review).
-- API keys are shipped client-side (fine for MVP/TestFlight). Move calls behind a
-  backend proxy before a wide public launch.
+## Important conventions
+- Content safety: every run is framed by the preamble as a comedian working an
+  *old photo of the user* — no cruelty, protected characteristics, or profanity
+  beyond "damn". Users should only roast their own photos (App Review).
+- API keys ship client-side (MVP). Move calls behind a backend proxy before a wide launch.
 
 ## Known-good next steps / ideas
-- Vision-based face tracking so costume pieces follow the real face, not the guide rect.
 - Streamed TTS playback (start audio before the full clip arrives).
 - Word-accurate sticker timing via ElevenLabs timestamps instead of char-offset estimates.
-- Move API calls behind a backend proxy before wide launch.
+- Backend proxy for API keys.
 
 ## Git
-- Local repo on `main`. Remote: `https://github.com/pbakerx/roast_machine.git`
-  (add with `git remote add origin …` then `git push -u origin main`).
+- `main` tracks `https://github.com/pbakerx/roast_machine.git` (public repo).
 - `Secrets.xcconfig` is git-ignored — never commit API keys.
