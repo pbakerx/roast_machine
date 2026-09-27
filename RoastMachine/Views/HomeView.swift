@@ -302,7 +302,7 @@ struct HomeView: View {
     /// `RM_DEMO_PHOTO=/path` drops a photo onto the Stage (the simulator has no
     /// camera and its photo picker is unreliable); `RM_DEMO_MODE=<mode id>` and
     /// `RM_DEMO_FLAVOR=roast|compliment` preset the panel; `RM_DEMO_AUTORUN=1`
-    /// accepts the consent sheet and fires the shutter.
+    /// accepts the consent sheet and fires the shutter; `RM_DEMO_BOXOFFICE=1` opens the Box Office.
     private func loadDemoPhotoIfRequested() {
         let env = ProcessInfo.processInfo.environment
         guard libraryImage == nil,
@@ -314,6 +314,9 @@ struct HomeView: View {
         }
         if let raw = env["RM_DEMO_FLAVOR"], let demoFlavor = RoastFlavor(rawValue: raw) {
             flavor = demoFlavor
+        }
+        if env["RM_DEMO_BOXOFFICE"] == "1" {
+            showPaywall = true
         }
         if env["RM_DEMO_AUTORUN"] == "1" {
             aiConsentGiven = true

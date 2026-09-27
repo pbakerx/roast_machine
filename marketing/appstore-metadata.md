@@ -20,7 +20,7 @@ Copy-paste source for the App Store listing. Keep in sync with the app.
 
 ## Promotional text (≤170)
 
-Your first roast and your first hype are on the house. One payment unlocks all 14 comedians, forever.
+Your first roast and your first hype are on the house. Then grab a pack of shows — 20 for $3.99, and they never expire.
 
 ## Description
 
@@ -41,8 +41,12 @@ THE LINEUP
 BUILT FOR THE GROUP CHAT
 Every bit exports as a video with the audio baked in. One tap to share.
 
-THE DEAL
-Your first roast and your first hype are free. After that, one $2.99 payment unlocks every comedian and unlimited roasts and hype — forever. No subscription. No credits. No nonsense.
+THE BOX OFFICE
+Your first roast and your first hype are free. After that, each show is one ticket:
+• Top-Up — 8 shows for $1.99
+• Opening Act — 20 shows for $3.99
+• Headliner — 60 shows for $9.99
+One ticket = one roast or one hype, with any comedian. Replays and shares are free, tickets never expire, and there's no subscription.
 
 PLAY NICE
 Before the first show the app asks your permission and tells you exactly where your photo goes. Every bit is written by an AI comedian playing a character, with guardrails: it only riffs on what's in the picture — never on who you are. Roast yourself, or friends who are in on the joke.
@@ -57,26 +61,31 @@ The machine is open. 14 comedians, one big button, and a HYPE switch for when yo
 
 ## App Privacy (nutrition label)
 
-- Data collected: **Photos or Videos** — used for App Functionality; **not** linked to the user; **not** used for tracking.
-- Nothing else. No identifiers, no usage data, no diagnostics, no contact info.
-- Third-party AI: Yes — OpenAI (photo + text) and ElevenLabs (text). Disclosed in the privacy policy.
+All "App Functionality", **not linked** to the user, **not** used for tracking:
+- **User Content → Photos or Videos** — the photo passes through our server to OpenAI; never stored.
+- **Identifiers → User ID** — the random wallet ID that holds ticket balances.
+- **Purchases → Purchase History** — App Store transaction IDs, to credit tickets once.
 
-## In-App Purchase
+Nothing else: no contact info, location, usage data, diagnostics or advertising ID.
+Third-party AI: OpenAI (photo + text) and ElevenLabs (text), via our server.
 
-| Field | Value |
-|---|---|
-| Type | Non-Consumable |
-| Reference name | Everything Unlock |
-| Product ID | AechTech.RoastMachine.allmodes |
-| Price | $2.99 (Tier 3) |
-| Display name | Everything |
-| Description | Unlimited roasts and hype from every comedian. One payment, forever. |
-| Review screenshot | marketing/screenshots/iap_paywall.png |
+## In-App Purchases (consumable ticket packs)
+
+| Reference name | Product ID | Price | Display name | Description |
+|---|---|---|---|---|
+| Top-Up 8 Shows | AechTech.RoastMachine.tickets8 | $1.99 | Top-Up: 8 Shows | 8 tickets. 1 ticket = 1 roast or 1 hype. |
+| Opening Act 20 Shows | AechTech.RoastMachine.tickets20 | $3.99 | Opening Act: 20 Shows | 20 tickets. 1 ticket = 1 roast or 1 hype. |
+| Headliner 60 Shows | AechTech.RoastMachine.tickets60 | $9.99 | Headliner: 60 Shows | 60 tickets. 1 ticket = 1 roast or 1 hype. |
+
+Review screenshot: `marketing/screenshots/iap_boxoffice.png`. The old non-consumable
+"Everything Unlock" (`AechTech.RoastMachine.allmodes`) is an unsubmitted draft and unused.
 
 ## App Review notes
 
-Roast Machine generates short comedy bits about a photo the user supplies, using OpenAI (GPT-4o vision) to write the script and ElevenLabs to voice it. Every request carries guardrails (only what's visible in the picture; never protected characteristics, weight, or disability; profanity capped at "damn"). Nothing is stored server-side by us.
+Roast Machine generates short comedy bits about a photo the user supplies. Our server (Supabase) sends the photo to OpenAI (GPT-4o vision) to write the script and the text to ElevenLabs to voice it; the app itself holds no API keys. Every request carries guardrails (only what's visible in the picture; never protected characteristics, weight, or disability; profanity capped at "damn"). Photos are never stored.
 
-To test: allow the camera (or tap Photo and pick any picture of a person), leave the dial on Classic Roast, and press the big flame button. A one-time "Before the Show" sheet discloses that the photo is sent to OpenAI and the text to ElevenLabs and asks for permission (guideline 5.1.2(i)); tap LET'S GO. Flip the ROAST/HYPE switch to hear the compliment version. Each install gets one free roast and one free hype; a third press opens the $2.99 "Everything" purchase, which can be exercised with a sandbox account. Restore Purchases is on the same screen.
+To test: allow the camera (or tap Photo and pick any picture of a person), leave the dial on Classic Roast, and press the big flame button. A one-time "Before the Show" sheet discloses that the photo is sent to OpenAI and the text to ElevenLabs and asks for permission (guideline 5.1.2(i)); tap LET'S GO. Flip the ROAST/HYPE switch for the compliment version.
 
-No login is required. The app is iPhone-only, portrait-only.
+Each device gets one free roast and one free hype. After that the shutter opens the Box Office, which sells consumable ticket packs (8/$1.99, 20/$3.99, 60/$9.99); one ticket = one show. Purchases can be exercised with a sandbox account; tickets are credited by our server after it verifies Apple's signed transaction.
+
+Requests are authenticated with Apple App Attest, so please test on a physical device (the Simulator does not support App Attest). No login is required. The app is iPhone-only, portrait-only.
