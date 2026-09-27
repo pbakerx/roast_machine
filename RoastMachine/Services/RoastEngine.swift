@@ -2,7 +2,7 @@
 //  RoastEngine.swift
 //  RoastMachine
 //
-//  Orchestrates the pipeline: image + mode -> OpenAI script -> ElevenLabs audio.
+//  Orchestrates a show: photo + mode -> server writes the bit -> server voices it.
 //
 
 import Combine
@@ -27,7 +27,7 @@ final class RoastEngine: ObservableObject {
     @Published private(set) var image: UIImage?
 
     let voice = VoiceService()
-    private let scripts = RoastScriptService()
+    private let backend = Backend.shared
     private var forwarders: [AnyCancellable] = []
 
     init() {
@@ -46,7 +46,7 @@ final class RoastEngine: ObservableObject {
         }
     }
 
-    func run(image: UIImage, mode: RoastMode, flavor: RoastFlavor = .roast) async {
+    func run(image: UIImage, mode: RoastMode, flavor: RoastFlavor, store: StoreManager) async {
         self.image = image
         self.mode = mode
         self.flavor = flavor
@@ -55,16 +55,18 @@ final class RoastEngine: ObservableObject {
 
         do {
             phase = .writing
-            let text = try await scripts.generateScript(for: image, mode: mode, flavor: flavor)
-            script = text
+            let show = try await backend.show(image: image, modeID: mode.id, flavor: flavor)
+            store.apply(show.wallet)
+            script = show.script
 
             phase = .voicing
-            let data = try await voice.synthesize(text: text, voiceID: mode.voiceID)
+            let data = try await backend.voice(showID: show.showId)
             audio = data
 
             phase = .ready
             voice.play(data)
         } catch {
+            store.apply((error as? BackendError)?.wallet)
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             phase = .failed(message)
         }

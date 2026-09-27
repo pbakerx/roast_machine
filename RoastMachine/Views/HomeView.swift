@@ -48,7 +48,7 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 topBar
                 Spacer()
-                if !store.hasEverything {
+                if store.showsTicketBanner {
                     ticketBanner
                 }
                 controlPanel
@@ -186,22 +186,24 @@ struct HomeView: View {
 
     /// Shows what's still on the house; once both tastes are spent it turns
     /// into the unlock pitch.
+    /// Free runs first, then the ticket count, then the pitch.
     private var ticketBanner: some View {
         let roast = store.freeRunRemaining(for: .roast)
         let hype = store.freeRunRemaining(for: .compliment)
+        let tickets = store.tickets
         let label: String
         switch (roast, hype) {
         case (true, true):   label = "ON THE HOUSE: 1 ROAST · 1 HYPE"
-        case (true, false):  label = "ON THE HOUSE: 1 ROAST LEFT"
-        case (false, true):  label = "ON THE HOUSE: 1 HYPE LEFT"
-        case (false, false): label = "UNLOCK EVERYTHING — \(store.everythingProduct?.displayPrice ?? "$2.99")"
+        case (true, false):  label = tickets > 0 ? "1 FREE ROAST · \(tickets) TICKETS" : "ON THE HOUSE: 1 ROAST LEFT"
+        case (false, true):  label = tickets > 0 ? "1 FREE HYPE · \(tickets) TICKETS" : "ON THE HOUSE: 1 HYPE LEFT"
+        case (false, false): label = tickets > 0 ? "\(tickets) TICKET\(tickets == 1 ? "" : "S") LEFT" : "OUT OF TICKETS — BOX OFFICE"
         }
         return Button {
             Haptics.tap()
             showPaywall = true
         } label: {
             HStack(spacing: 8) {
-                Text(roast || hype ? "🎟️" : "🔓")
+                Text("🎟️")
                 Text(label)
                     .font(.system(size: 11, weight: .heavy, design: .rounded))
                     .tracking(1)
@@ -346,8 +348,7 @@ struct HomeView: View {
     private func run(_ image: UIImage) {
         let mode = selectedMode
         let flavor = flavor
-        // The free taste is single-use: burn it the moment it fires.
-        store.consumeFreeRun(flavor)
-        Task { await engine.run(image: image, mode: mode, flavor: flavor) }
+        // The server spends the free run or ticket and has the final say.
+        Task { await engine.run(image: image, mode: mode, flavor: flavor, store: store) }
     }
 }

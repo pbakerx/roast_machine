@@ -16,10 +16,7 @@ struct RoastMachineApp: App {
             RootView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
-                .task {
-                    await store.loadProducts()
-                    await store.refreshEntitlements()
-                }
+                .task { await store.start() }
         }
     }
 }

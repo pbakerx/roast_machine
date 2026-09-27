@@ -2,10 +2,11 @@
 //  StoreManager.swift
 //  RoastMachine
 //
-//  StoreKit 2 wrapper for the simplest possible model:
-//    - Every install gets ONE free roast and ONE free hype (any comedian).
-//    - One $2.99 non-consumable ("Everything") unlocks unlimited runs of
-//      every comedian, forever. No subscriptions, no credit packs.
+//  The Box Office. Every install gets one free roast and one free hype; after
+//  that each show costs a ticket. Tickets are consumable StoreKit packs, and the
+//  balance lives on the server (so it can't be edited on-device, survives
+//  reinstalls, and every purchase is verified against Apple's signature before
+//  it's credited).
 //
 
 import StoreKit
@@ -13,155 +14,142 @@ import StoreKit
 @MainActor
 final class StoreManager: ObservableObject {
 
-    // Product identifier — must match Subscriptions.storekit / App Store Connect.
+    // Must match App Store Connect, Subscriptions.storekit and the server's PRODUCTS.
     enum ProductID {
-        static let everything = "AechTech.RoastMachine.allmodes"
+        static let tickets8  = "AechTech.RoastMachine.tickets8"
+        static let tickets20 = "AechTech.RoastMachine.tickets20"
+        static let tickets60 = "AechTech.RoastMachine.tickets60"
+        static let all = [tickets8, tickets20, tickets60]
     }
 
+    struct Pack: Identifiable {
+        let id: String
+        let name: String
+        let tickets: Int
+        let badge: String?
+    }
+
+    static let packs: [Pack] = [
+        Pack(id: ProductID.tickets8,  name: "Top-Up",      tickets: 8,  badge: nil),
+        Pack(id: ProductID.tickets20, name: "Opening Act", tickets: 20, badge: "MOST POPULAR"),
+        Pack(id: ProductID.tickets60, name: "Headliner",   tickets: 60, badge: "BEST VALUE"),
+    ]
+
     @Published private(set) var products: [Product] = []
-    @Published private(set) var ownedProductIDs: Set<String> = []
+    /// Nil until the first server fetch lands.
+    @Published private(set) var wallet: Wallet?
     @Published var purchaseInFlight = false
     @Published var isLoadingProducts = false
     @Published var didAttemptLoad = false
     @Published var lastError: String?
 
-    /// The two free tastes. Persisted so they survive relaunches.
-    @Published private(set) var freeRoastUsed: Bool
-    @Published private(set) var freeHypeUsed: Bool
-
-    private let defaults: UserDefaults
+    private let backend: Backend
     private var updatesTask: Task<Void, Never>?
 
-    private static let freeRoastKey = "rm.freeRoastUsed"
-    private static let freeHypeKey = "rm.freeHypeUsed"
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        freeRoastUsed = defaults.bool(forKey: Self.freeRoastKey)
-        freeHypeUsed = defaults.bool(forKey: Self.freeHypeKey)
-
-        // Listen for transactions that arrive outside an explicit purchase (e.g. restores).
+    init(backend: Backend = .shared) {
+        self.backend = backend
+        // Purchases that complete outside an explicit buy (Ask to Buy, interrupted
+        // purchases) arrive here.
         updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
-                await self?.handle(transactionResult: result)
+                await self?.process(result)
             }
         }
     }
 
     deinit { updatesTask?.cancel() }
 
-    // MARK: - Entitlement helpers
+    /// Called once at launch.
+    func start() async {
+        await loadProducts()
+        await refreshWallet()
+        // Credit anything bought but not yet acknowledged (e.g. the app was killed mid-purchase).
+        for await result in Transaction.unfinished {
+            await process(result)
+        }
+    }
 
-    /// DEV ONLY: unlock everything without a purchase.
-    /// Keep `false` so the real paywall runs everywhere; flip to `true`
-    /// only for local UI work that shouldn't touch the store.
-    static let devUnlockEverything = false
+    // MARK: - Wallet
 
-    var hasEverything: Bool {
-        Self.devUnlockEverything || Self.demoUnlock
-            || ownedProductIDs.contains(ProductID.everything)
+    var tickets: Int { wallet?.tickets ?? 0 }
+
+    func freeRunRemaining(for flavor: RoastFlavor) -> Bool {
+        wallet?.freeRunRemaining(for: flavor) ?? false
+    }
+
+    /// Whether the shutter should fire. Optimistic until the wallet loads —
+    /// the server has the final say either way.
+    func canRun(_ flavor: RoastFlavor) -> Bool {
+        if Self.demoUnlock { return true }
+        return wallet?.canRun(flavor) ?? true
+    }
+
+    var showsTicketBanner: Bool { !Self.demoUnlock && wallet != nil }
+
+    func apply(_ wallet: Wallet?) {
+        if let wallet { self.wallet = wallet }
+    }
+
+    func refreshWallet() async {
+        do { wallet = try await backend.wallet() } catch { /* keep last known */ }
     }
 
 #if DEBUG && targetEnvironment(simulator)
-    /// Screenshot rig: `SIMCTL_CHILD_RM_DEMO_UNLOCK=1 xcrun simctl launch …`
-    /// shows the paid experience without touching the store.
+    /// Screenshot rig: `SIMCTL_CHILD_RM_DEMO_UNLOCK=1` hides the ticket UI.
     private static let demoUnlock = ProcessInfo.processInfo.environment["RM_DEMO_UNLOCK"] == "1"
 #else
     private static let demoUnlock = false
 #endif
 
-    var everythingProduct: Product? {
-        products.first { $0.id == ProductID.everything }
-    }
+    // MARK: - Products
 
-    /// Whether the free taste for this flavor is still on the table.
-    func freeRunRemaining(for flavor: RoastFlavor) -> Bool {
-        switch flavor {
-        case .roast:      return !freeRoastUsed
-        case .compliment: return !freeHypeUsed
-        }
+    func product(for pack: Pack) -> Product? {
+        products.first { $0.id == pack.id }
     }
-
-    /// Whether the shutter should fire for this flavor right now.
-    func canRun(_ flavor: RoastFlavor) -> Bool {
-        hasEverything || freeRunRemaining(for: flavor)
-    }
-
-    /// The free taste has been fired — burn it. No-op once everything is owned.
-    func consumeFreeRun(_ flavor: RoastFlavor) {
-        guard !hasEverything else { return }
-        switch flavor {
-        case .roast:
-            freeRoastUsed = true
-            defaults.set(true, forKey: Self.freeRoastKey)
-        case .compliment:
-            freeHypeUsed = true
-            defaults.set(true, forKey: Self.freeHypeKey)
-        }
-    }
-
-    // MARK: - Loading
 
     func loadProducts() async {
         isLoadingProducts = true
         defer { isLoadingProducts = false; didAttemptLoad = true }
         do {
-            products = try await Product.products(for: [ProductID.everything])
+            products = try await Product.products(for: ProductID.all)
             if products.isEmpty {
-                lastError = "No products came back. In Xcode: Edit Scheme ▸ Run ▸ Options ▸ StoreKit Configuration ▸ select Subscriptions.storekit."
+                lastError = "The Box Office is closed right now. Try again in a moment."
             }
         } catch {
-            lastError = "Couldn't load the store: \(error.localizedDescription)"
+            lastError = "Couldn't reach the App Store: \(error.localizedDescription)"
         }
     }
 
-    func refreshEntitlements() async {
-        var owned: Set<String> = []
-        for await result in Transaction.currentEntitlements {
-            if case .verified(let transaction) = result,
-               transaction.revocationDate == nil {
-                owned.insert(transaction.productID)
-            }
-        }
-        ownedProductIDs = owned
-    }
-
-    // MARK: - Purchase / restore
+    // MARK: - Purchase
 
     func purchase(_ product: Product) async {
         purchaseInFlight = true
         defer { purchaseInFlight = false }
         do {
-            let result = try await product.purchase()
-            switch result {
-            case .success(let verification):
-                await handle(transactionResult: verification)
-            case .userCancelled, .pending:
-                break
-            @unknown default:
-                break
+            let result = try await product.purchase(options: [.appAccountToken(backend.walletID)])
+            if case .success(let verification) = result {
+                await process(verification)
             }
         } catch {
             lastError = "Purchase failed: \(error.localizedDescription)"
         }
     }
 
-    func restore() async {
+    /// Hands a signed transaction to the server, which verifies Apple's
+    /// signature and credits the tickets exactly once. Only then is it finished;
+    /// a failed credit stays unfinished and is retried at next launch.
+    private func process(_ result: VerificationResult<Transaction>) async {
+        guard case .verified(let transaction) = result else { return }
+        guard transaction.productType == .consumable, ProductID.all.contains(transaction.productID) else {
+            await transaction.finish()
+            return
+        }
         do {
-            try await AppStore.sync()
-            await refreshEntitlements()
+            let credit = try await backend.credit(jws: result.jwsRepresentation)
+            wallet = credit.wallet
+            await transaction.finish()
         } catch {
-            lastError = "Restore failed: \(error.localizedDescription)"
+            lastError = "Your purchase went through, but the tickets are still on their way. They'll appear next time you open the app."
         }
-    }
-
-    // MARK: - Private
-
-    private func handle(transactionResult: VerificationResult<Transaction>) async {
-        guard case .verified(let transaction) = transactionResult else { return }
-        if transaction.productType != .consumable {
-            ownedProductIDs.insert(transaction.productID)
-        }
-        await transaction.finish()
     }
 }

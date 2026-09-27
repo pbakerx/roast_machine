@@ -2,8 +2,7 @@
 //  VoiceService.swift
 //  RoastMachine
 //
-//  Turns the roast text into speech using the ElevenLabs text-to-speech REST API,
-//  then plays it back with AVAudioPlayer.
+//  Plays the show's audio (voiced on the server) and the bundled voice previews.
 //
 
 import AVFoundation
@@ -16,41 +15,6 @@ final class VoiceService: NSObject, ObservableObject {
     var duration: TimeInterval { player?.duration ?? 0 }
 
     private var player: AVAudioPlayer?
-    private let session = URLSession.shared
-
-    /// Fetches spoken audio (mp3 data) for the given text + ElevenLabs voice.
-    func synthesize(text: String, voiceID: String) async throws -> Data {
-        guard AppConfig.hasElevenLabsKey else { throw RoastError.missingElevenLabsKey }
-
-        let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voiceID)")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
-        request.setValue(AppConfig.elevenLabsKey, forHTTPHeaderField: "xi-api-key")
-        request.timeoutInterval = 60
-
-        let body: [String: Any] = [
-            "text": text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": [
-                "stability": 0.4,
-                "similarity_boost": 0.75,
-                "style": 0.6,
-                "use_speaker_boost": true
-            ]
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw RoastError.emptyResponse }
-        guard (200...299).contains(http.statusCode) else {
-            let msg = String(data: data, encoding: .utf8) ?? ""
-            throw RoastError.http(http.statusCode, String(msg.prefix(200)))
-        }
-        guard !data.isEmpty else { throw RoastError.emptyResponse }
-        return data
-    }
 
     /// Plays mp3 data. Configures the audio session so it's audible even on silent mode.
     func play(_ data: Data) {
@@ -78,29 +42,16 @@ final class VoiceService: NSObject, ObservableObject {
     /// Mode id currently synthesizing/speaking its preview line, for UI spinners.
     @Published var previewingModeID: String?
 
-    /// Speaks the mode's short preview line, caching the clip on disk so each
-    /// voice only costs one ElevenLabs call ever.
+    /// Plays the mode's short preview line, pre-recorded into the app bundle so
+    /// auditioning voices costs nothing.
     func preview(_ mode: RoastMode) async {
         if previewingModeID != nil { return }
+        guard let url = Bundle.main.url(forResource: "preview_\(mode.id)", withExtension: "mp3"),
+              let data = try? Data(contentsOf: url) else { return }
         previewingModeID = mode.id
-        defer { previewingModeID = nil }
-
-        let cacheURL = FileManager.default
-            .urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("preview_\(mode.voiceID).mp3")
-
-        do {
-            let data: Data
-            if let cached = try? Data(contentsOf: cacheURL), !cached.isEmpty {
-                data = cached
-            } else {
-                data = try await synthesize(text: mode.previewLine, voiceID: mode.voiceID)
-                try? data.write(to: cacheURL)
-            }
-            play(data)
-        } catch {
-            // Preview is a nicety — fail silently rather than interrupt the Stage.
-        }
+        play(data)
+        try? await Task.sleep(for: .milliseconds(400))
+        previewingModeID = nil
     }
 
     func togglePlayback(_ data: Data) {

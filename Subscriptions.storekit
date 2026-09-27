@@ -1,37 +1,61 @@
 {
-  "identifier" : "RM100001",
-  "nonRenewingSubscriptions" : [
-
-  ],
-  "products" : [
+  "identifier": "RM100001",
+  "nonRenewingSubscriptions": [],
+  "products": [
     {
-      "displayPrice" : "2.99",
-      "familyShareable" : false,
-      "internalID" : "RM0000000001",
-      "localizations" : [
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "RM0000000011",
+      "localizations": [
         {
-          "description" : "Unlimited roasts and hype from every comedian: Angry Chef, Disappointed Mom, Shakespeare, Diss Track and more. One payment, forever.",
-          "displayName" : "Everything",
-          "locale" : "en_US"
+          "description": "8 tickets. 1 ticket = 1 roast or hype.",
+          "displayName": "Top-Up: 8 Shows",
+          "locale": "en_US"
         }
       ],
-      "productID" : "AechTech.RoastMachine.allmodes",
-      "referenceName" : "Everything Unlock",
-      "type" : "NonConsumable"
+      "productID": "AechTech.RoastMachine.tickets8",
+      "referenceName": "Top-Up: 8 Shows",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "3.99",
+      "familyShareable": false,
+      "internalID": "RM0000000012",
+      "localizations": [
+        {
+          "description": "20 tickets. 1 ticket = 1 roast or hype.",
+          "displayName": "Opening Act: 20 Shows",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "AechTech.RoastMachine.tickets20",
+      "referenceName": "Opening Act: 20 Shows",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "9.99",
+      "familyShareable": false,
+      "internalID": "RM0000000013",
+      "localizations": [
+        {
+          "description": "60 tickets. 1 ticket = 1 roast or hype.",
+          "displayName": "Headliner: 60 Shows",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "AechTech.RoastMachine.tickets60",
+      "referenceName": "Headliner: 60 Shows",
+      "type": "Consumable"
     }
   ],
-  "settings" : {
-    "_developerTeamID" : "55Y3LX4J5J",
-    "_failTransactionsEnabled" : false,
-    "_storeKitErrors" : [
-
-    ]
+  "settings": {
+    "_developerTeamID": "55Y3LX4J5J",
+    "_failTransactionsEnabled": false,
+    "_storeKitErrors": []
   },
-  "subscriptionGroups" : [
-
-  ],
-  "version" : {
-    "major" : 4,
-    "minor" : 0
+  "subscriptionGroups": [],
+  "version": {
+    "major": 4,
+    "minor": 0
   }
 }

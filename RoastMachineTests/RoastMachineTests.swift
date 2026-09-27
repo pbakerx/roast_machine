@@ -2,90 +2,65 @@
 //  RoastMachineTests.swift
 //  RoastMachineTests
 //
-//  Pure-logic coverage for the pieces App Review will exercise hardest:
-//  prompt assembly (roast vs hype) and paywall gating.
+//  Client-side logic: the comedian catalog and the wallet's gating rules.
+//  Prompt assembly and ticket accounting live on the server
+//  (supabase/functions/_shared/apple_test.ts, app_roastmachine.spend_show).
 //
 
 import XCTest
 @testable import RoastMachine
 
-final class PromptAssemblyTests: XCTestCase {
+final class CatalogTests: XCTestCase {
 
-    private var classic: RoastMode { RoastMode.classic }
+    /// Must match PERSONAS in supabase/functions/_shared/personas.ts.
+    private let serverModeIDs: Set<String> = [
+        "classic", "nature", "ramsay", "mom", "shakespeare", "disstrack", "beautiful",
+        "fortune", "drill", "linkedin", "conspiracy", "pickup", "datingbio", "pet",
+    ]
 
-    func testDefaultFlavorIsRoast() {
-        let prompt = classic.fullPrompt()
-        XCTAssertTrue(prompt.hasPrefix(RoastMode.sharedPreamble))
-        XCTAssertTrue(prompt.contains("PERSONA:"))
-        XCTAssertTrue(prompt.hasSuffix(classic.personaPrompt))
-    }
-
-    func testComplimentFlavorSwapsPreamble() {
-        let prompt = classic.fullPrompt(flavor: .compliment)
-        XCTAssertTrue(prompt.hasPrefix(RoastMode.complimentPreamble))
-        XCTAssertFalse(prompt.contains(RoastMode.sharedPreamble))
-        // Persona still rides along so the character survives the flip.
-        XCTAssertTrue(prompt.hasSuffix(classic.personaPrompt))
-    }
-
-    func testComplimentPreambleOverridesRoastInstructions() {
-        let preamble = RoastMode.complimentPreamble
-        XCTAssertTrue(preamble.contains("compliment"))
-        XCTAssertTrue(preamble.contains("ignore that part"))
-    }
-
-    func testEveryModeHasDistinctPersonaAndVoice() {
-        let modes = RoastMode.all
-        XCTAssertEqual(modes.count, 14)
-        XCTAssertEqual(Set(modes.map(\.id)).count, modes.count)
-        XCTAssertFalse(modes.contains { $0.personaPrompt.isEmpty || $0.voiceID.isEmpty })
-    }
-
-    func testClassicHeadlinesTheDial() {
+    func testCatalogMatchesServerPersonas() {
+        XCTAssertEqual(Set(RoastMode.all.map(\.id)), serverModeIDs)
+        XCTAssertEqual(RoastMode.all.count, serverModeIDs.count)
         XCTAssertEqual(RoastMode.all.first?.id, "classic")
-        XCTAssertEqual(RoastMode.classic.id, "classic")
+    }
+
+    func testEveryComedianHasABundledPreview() {
+        let bundle = Bundle(for: StoreManager.self)
+        for mode in RoastMode.all {
+            XCTAssertNotNil(bundle.url(forResource: "preview_\(mode.id)", withExtension: "mp3"), mode.id)
+        }
+    }
+
+    func testTicketPacksMatchServerProducts() {
+        XCTAssertEqual(StoreManager.packs.map(\.tickets), [8, 20, 60])
+        XCTAssertEqual(Set(StoreManager.packs.map(\.id)), Set(StoreManager.ProductID.all))
     }
 }
 
-@MainActor
-final class StoreGatingTests: XCTestCase {
+final class WalletTests: XCTestCase {
 
-    private var defaults: UserDefaults!
-
-    override func setUp() {
-        super.setUp()
-        defaults = UserDefaults(suiteName: "RoastMachineTests.store")
-        defaults.removePersistentDomain(forName: "RoastMachineTests.store")
+    func testFreshWalletRunsBothFlavorsFree() {
+        let w = Wallet(tickets: 0, freeRoast: true, freeHype: true)
+        XCTAssertTrue(w.canRun(.roast))
+        XCTAssertTrue(w.canRun(.compliment))
     }
 
-    func testDevUnlockIsOffForRelease() {
-        XCTAssertFalse(StoreManager.devUnlockEverything,
-                       "devUnlockEverything must be false for release")
+    func testFreeRunsAreIndependent() {
+        let w = Wallet(tickets: 0, freeRoast: false, freeHype: true)
+        XCTAssertFalse(w.canRun(.roast))
+        XCTAssertTrue(w.canRun(.compliment))
     }
 
-    func testFreshInstallGetsOneRoastAndOneHype() {
-        let store = StoreManager(defaults: defaults)
-        XCTAssertFalse(store.hasEverything)
-        XCTAssertTrue(store.canRun(.roast))
-        XCTAssertTrue(store.canRun(.compliment))
+    func testTicketsCoverEitherFlavor() {
+        let w = Wallet(tickets: 1, freeRoast: false, freeHype: false)
+        XCTAssertTrue(w.canRun(.roast))
+        XCTAssertTrue(w.canRun(.compliment))
+        XCTAssertFalse(Wallet(tickets: 0, freeRoast: false, freeHype: false).canRun(.roast))
     }
 
-    func testFreeRunsAreIndependentAndSingleUse() {
-        let store = StoreManager(defaults: defaults)
-
-        store.consumeFreeRun(.roast)
-        XCTAssertFalse(store.canRun(.roast))
-        XCTAssertTrue(store.canRun(.compliment), "burning the roast must not touch the hype")
-
-        store.consumeFreeRun(.compliment)
-        XCTAssertFalse(store.canRun(.compliment))
-    }
-
-    func testFreeRunsPersistAcrossRelaunch() {
-        StoreManager(defaults: defaults).consumeFreeRun(.roast)
-
-        let relaunched = StoreManager(defaults: defaults)
-        XCTAssertFalse(relaunched.canRun(.roast))
-        XCTAssertTrue(relaunched.canRun(.compliment))
+    func testDecodesServerWallet() throws {
+        let json = #"{"tickets":7,"free_roast":false,"free_hype":true}"#.data(using: .utf8)!
+        let w = try JSONDecoder().decode(Wallet.self, from: json)
+        XCTAssertEqual(w, Wallet(tickets: 7, freeRoast: false, freeHype: true))
     }
 }

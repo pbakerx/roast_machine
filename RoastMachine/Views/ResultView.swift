@@ -238,7 +238,8 @@ struct ResultView: View {
                 .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
 
-            if !store.hasEverything {
+            if store.showsTicketBanner && store.tickets < 3
+                && !store.freeRunRemaining(for: .roast) && !store.freeRunRemaining(for: .compliment) {
                 upsellRibbon
             }
         }
@@ -270,7 +271,7 @@ struct ResultView: View {
         Button {
             showPaywall = true
         } label: {
-            Text("😈 Unlimited roasts, all 14 comedians — \(store.everythingProduct?.displayPrice ?? "$2.99")")
+            Text(store.tickets == 0 ? "🎟️ Out of tickets — hit the Box Office" : "🎟️ \(store.tickets) ticket\(store.tickets == 1 ? "" : "s") left — hit the Box Office")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14).padding(.vertical, 8)

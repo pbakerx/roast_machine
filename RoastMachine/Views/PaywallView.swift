@@ -2,7 +2,7 @@
 //  PaywallView.swift
 //  RoastMachine
 //
-//  One flashy $2.99 unlock for the whole machine. No subscriptions.
+//  The Box Office: three ticket packs, one ticket per show. No subscriptions.
 //
 
 import SwiftUI
@@ -15,26 +15,36 @@ struct PaywallView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 22) {
+                VStack(spacing: 20) {
                     header
-                    modeGrid
 
-                    if let product = store.everythingProduct {
-                        buyButton(product)
-                    } else if store.isLoadingProducts || !store.didAttemptLoad {
-                        ProgressView("Loading store…")
-                            .padding(.top, 30)
+                    if store.products.isEmpty {
+                        if store.isLoadingProducts || !store.didAttemptLoad {
+                            ProgressView("Opening the Box Office…").padding(.top, 30)
+                        } else {
+                            emptyState
+                        }
                     } else {
-                        emptyState
+                        VStack(spacing: 12) {
+                            ForEach(StoreManager.packs) { pack in
+                                if let product = store.product(for: pack) {
+                                    packRow(pack, product)
+                                }
+                            }
+                        }
                     }
 
-                    Button("Restore Purchases") {
-                        Task { await store.restore() }
+                    VStack(spacing: 6) {
+                        Text("1 ticket = 1 roast or 1 hype, with any comedian.")
+                        Text("Replays and shares are free. Tickets never expire.")
                     }
-                    .font(.subheadline)
-                    .tint(.white.opacity(0.8))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
 
-                    Text("Your first roast and your first hype are on the house. After that, one payment unlocks everything — not a subscription, no nonsense.")
+                    lineup
+
+                    Text("Your first roast and your first hype are on the house. Packs are one-time purchases, not a subscription.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -49,7 +59,7 @@ struct PaywallView: View {
                 LinearGradient(colors: [.black, Color(red: 0.35, green: 0.08, blue: 0.02), .black],
                                startPoint: .top, endPoint: .bottom).ignoresSafeArea()
             )
-            .navigationTitle("Unlock the Machine")
+            .navigationTitle("Box Office")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -57,11 +67,9 @@ struct PaywallView: View {
                 }
             }
             .task {
-                if store.products.isEmpty {
-                    await store.loadProducts()
-                }
+                if store.products.isEmpty { await store.loadProducts() }
             }
-            .alert("Store", isPresented: purchaseErrorBinding) {
+            .alert("Box Office", isPresented: purchaseErrorBinding) {
                 Button("OK") { store.lastError = nil }
             } message: {
                 Text(store.lastError ?? "")
@@ -70,89 +78,89 @@ struct PaywallView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "flame.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(
-                    LinearGradient(colors: [.yellow, .orange, .red],
-                                   startPoint: .top, endPoint: .bottom)
-                )
+        VStack(spacing: 8) {
+            Text("🎟️")
+                .font(.system(size: 56))
                 .shadow(color: .orange.opacity(0.8), radius: 18)
-                // A symbol effect pulses in place; a repeat-forever scale
-                // animation also catches the sheet's layout and drifts sideways.
-                .symbolEffect(.breathe, options: .repeating)
-
-            Text("THE WHOLE MACHINE")
+            Text("GET MORE SHOWS")
                 .font(.system(size: 26, weight: .black, design: .rounded))
                 .tracking(1)
-            Text("Every comedian. Unlimited roasts. Unlimited hype.\nOne payment. Forever.")
+            Text(balanceLine)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
         }
         .padding(.top, 8)
     }
 
-    /// The whole lineup, shown off like a poster.
-    private var modeGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
-            ForEach(RoastMode.all) { mode in
-                VStack(spacing: 6) {
-                    Image(systemName: mode.systemImage)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(mode.theme.primary)
-                        .shadow(color: mode.theme.primary.opacity(0.7), radius: 6)
-                    Text(mode.title)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .foregroundStyle(.white)
-                }
-                .frame(maxWidth: .infinity, minHeight: 74)
-                .padding(6)
-                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(mode.theme.primary.opacity(0.35), lineWidth: 1)
-                )
-            }
-        }
+    private var balanceLine: String {
+        let n = store.tickets
+        return n == 0 ? "You're out of tickets." : "You have \(n) ticket\(n == 1 ? "" : "s")."
     }
 
-    private func buyButton(_ product: Product) -> some View {
-        let owned = store.ownedProductIDs.contains(product.id)
-        return Group {
-            if owned {
-                Label("Unlocked — go be terrible", systemImage: "checkmark.seal.fill")
-                    .font(.headline)
-                    .foregroundStyle(.green)
-                    .padding()
-            } else {
-                Button {
-                    Task { await store.purchase(product) }
-                } label: {
-                    HStack {
-                        Image(systemName: "bolt.fill")
-                        Text("Unlock Everything — \(product.displayPrice)")
+    private func packRow(_ pack: StoreManager.Pack, _ product: Product) -> some View {
+        let featured = pack.badge != nil
+        return Button {
+            Task { await store.purchase(product) }
+        } label: {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(pack.name.uppercased())
+                            .font(.system(size: 17, weight: .black, design: .rounded))
+                            .tracking(1)
+                        if let badge = pack.badge {
+                            Text(badge)
+                                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                                .tracking(1)
+                                .padding(.horizontal, 6).padding(.vertical, 3)
+                                .background(.yellow, in: Capsule())
+                                .foregroundStyle(.black)
+                        }
                     }
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(colors: [.orange, .red],
-                                       startPoint: .leading, endPoint: .trailing),
-                        in: Capsule()
-                    )
-                    .foregroundStyle(.white)
-                    .shadow(color: .orange.opacity(0.6), radius: 12, y: 4)
+                    Text("\(pack.tickets) shows · \(perShow(product, pack)) each")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.75))
                 }
-                .disabled(store.purchaseInFlight)
+                Spacer()
+                Text(product.displayPrice)
+                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 18).padding(.vertical, 16)
+            .background(
+                featured
+                    ? AnyShapeStyle(LinearGradient(colors: [.orange, .red], startPoint: .leading, endPoint: .trailing))
+                    : AnyShapeStyle(Color.white.opacity(0.09)),
+                in: RoundedRectangle(cornerRadius: 20)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(.white.opacity(featured ? 0.4 : 0.15), lineWidth: 1))
+            .shadow(color: featured ? .orange.opacity(0.5) : .clear, radius: 12, y: 4)
+        }
+        .buttonStyle(.plain)
+        .disabled(store.purchaseInFlight)
+    }
+
+    private func perShow(_ product: Product, _ pack: StoreManager.Pack) -> String {
+        let each = product.price / Decimal(pack.tickets)
+        return each.formatted(product.priceFormatStyle)
+    }
+
+    /// The comedians, shown off like a poster.
+    private var lineup: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 8)], spacing: 8) {
+            ForEach(RoastMode.all) { mode in
+                Image(systemName: mode.systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(mode.theme.primary)
+                    .shadow(color: mode.theme.primary.opacity(0.7), radius: 6)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityLabel(mode.title)
             }
         }
     }
 
-    /// Only surface purchase/restore errors as an alert; the empty-store hint is
-    /// shown inline so we don't double up on the "no products" message.
+    /// Purchase errors show as an alert; the empty-store state is inline.
     private var purchaseErrorBinding: Binding<Bool> {
         Binding(
             get: { store.lastError != nil && !store.products.isEmpty },
@@ -162,12 +170,12 @@ struct PaywallView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "cart.badge.questionmark")
+            Image(systemName: "ticket")
                 .font(.system(size: 36))
                 .foregroundStyle(.secondary)
-            Text("Store unavailable")
+            Text("The Box Office is closed")
                 .font(.headline)
-            Text("In development, enable the local test store: Edit Scheme ▸ Run ▸ Options ▸ StoreKit Configuration ▸ Subscriptions.storekit.")
+            Text("We couldn't reach the App Store. Check your connection and try again.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -178,6 +186,6 @@ struct PaywallView: View {
             .tint(.orange)
             .padding(.top, 4)
         }
-        .padding(.top, 30)
+        .padding(.top, 20)
     }
 }
