@@ -19,41 +19,65 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 
 ## Build, run, test
 1. Open `RoastMachine.xcodeproj` (Xcode 26, objectVersion 70, iOS 18.5 target, Swift 5). iPhone-only, portrait-only.
-2. API keys live in `Secrets.xcconfig` (git-ignored) and flow into the app via
-   `RoastMachine-Info.plist` → read in `AppConfig.swift` from `Bundle.main.infoDictionary`.
-   Keys: `OPENAI_API_KEY`, `ELEVENLABS_API_KEY` (source of truth:
-   `~/Software Development/MasterTechNotesForClaude/secret.txt`).
-3. Signing: team `55Y3LX4J5J`, bundle id `AechTech.RoastMachine`, automatic signing.
+2. **The app ships no API keys.** OpenAI + ElevenLabs are called by the backend
+   (below). `Secrets.xcconfig` (git-ignored) still holds the raw keys for local
+   scripts and `RM_DEV_TOKEN` for the simulator, but nothing in it reaches the app.
+3. Signing: team `55Y3LX4J5J`, bundle id `AechTech.RoastMachine`, automatic signing,
+   App Attest entitlement in `RoastMachine.entitlements`.
    Bump `CURRENT_PROJECT_VERSION` for every App Store Connect upload.
-4. Tests: `RoastMachineTests` (unit, hosted in the app; folder-synced) — prompt
-   assembly and store gating. Run:
-   `xcodebuild -project RoastMachine.xcodeproj -scheme RoastMachine -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.5' test`
-5. StoreKit: the **shared scheme** pins `Subscriptions.storekit` for Xcode-launched
-   runs. Apps launched any other way (`simctl launch`, TestFlight, device) hit the
-   real sandbox product in App Store Connect.
+4. Tests: `RoastMachineTests` (catalog ↔ server personas, bundled previews, wallet
+   gating). Run on the dedicated sim "RM-Tests iPhone 17 Pro" — Philip runs other
+   Xcode sessions, so don't reuse or quit his simulators/Xcode.
+   Server tests: `cd supabase/functions && deno test --allow-net --allow-env --allow-read _shared/apple_test.ts`.
+5. StoreKit: the shared scheme pins `Subscriptions.storekit` for Xcode-launched runs;
+   everything else hits the sandbox/production products in App Store Connect.
 
-## Monetization
-- Every install gets **one free roast and one free hype** (any comedian). Flags
-  persist in UserDefaults (`rm.freeRoastUsed`, `rm.freeHypeUsed`).
-- After that the shutter opens the paywall: one **$2.99 non-consumable
-  "Everything"** (`AechTech.RoastMachine.allmodes`) unlocks unlimited runs of all
-  14 comedians forever. No subscriptions, no credits.
-- `StoreManager.devUnlockEverything` stays **`false`**. Only flip locally for UI work.
+## Backend (Supabase — shared Second-Brain project)
+- **Never create a Supabase project for this app.** It lives in the existing
+  **Second-Brain** project (`jqvohqudydzolyqfijrb`, AechTech org) as schema
+  **`app_roastmachine`** — one schema per app. Docs on the NAS:
+  `/Volumes/Home/02. Project Files/01. Software Development/roast machine/`.
+- `supabase/migrations/20260927000000_app_roastmachine.sql` — wallets, attest_keys,
+  challenges, purchases, shows + `spend_show` / `refund_show` / `credit_purchase`.
+  RLS on, **no policies**, no grants to anon/authenticated/service_role, schema not
+  exposed to PostgREST. Additive, safe to re-run:
+  `supabase db query --linked --project-ref jqvohqudydzolyqfijrb --file <migration>`.
+- `supabase/functions/roastmachine/` — one Edge Function (`verify_jwt = false`),
+  routes `challenge`, `register`, `wallet`, `show`, `voice`, `credit`. Connects to
+  Postgres directly via `SUPABASE_DB_URL`. Deploy:
+  `supabase functions deploy roastmachine --project-ref jqvohqudydzolyqfijrb --use-api --no-verify-jwt`.
+- `_shared/personas.ts` — **source of truth** for comedian prompts + ElevenLabs
+  voices + ticket products. The app sends a mode id, never a prompt.
+- Security: every request carries an **App Attest** assertion (genuine app on a
+  genuine iPhone; counter blocks replay). Purchases are StoreKit 2 JWS verified
+  against Apple Root CA G3 and credited once per transaction id, only to the
+  wallet in `appAccountToken`. Rate limits: 30 shows/wallet/day, 40/IP-hash/hour,
+  3,000/day globally (env `ROASTMACHINE_*_CAP`). One voice per show; scripts are
+  deleted once voiced. **Do not enable Supabase anonymous sign-ins** on the shared
+  project. Secrets are prefixed `ROASTMACHINE_` (OPENAI_API_KEY, ELEVENLABS_API_KEY,
+  IP_SALT, DEV_TOKEN). `ROASTMACHINE_DEV_TOKEN` is a simulator-only bypass —
+  `supabase secrets unset ROASTMACHINE_DEV_TOKEN --project-ref …` closes it.
+
+## Monetization — the Box Office
+- Every wallet gets **one free roast and one free hype** (server-side flags).
+- After that each show costs a **ticket**. Consumable packs: Top-Up 8 / $1.99,
+  Opening Act 20 / $3.99, Headliner 60 / $9.99 (`AechTech.RoastMachine.tickets8/20/60`).
+- Economics: ~2.8¢ API cost per show (tight ~250-char bits on ElevenLabs
+  multilingual v2 at $0.10/1k chars + gpt-4o) → ~77–84% gross margin after Apple's 15%.
+- The wallet id is a random UUID in the iCloud Keychain (`Backend.swift`), so
+  tickets survive reinstalls. Transactions are finished only after the server credits them.
 
 ## Architecture (`RoastMachine/`)
 - `RoastMachineApp.swift` — entry; owns `StoreManager`, loads products + entitlements.
-- `Models/AppConfig.swift` — API keys + `privacyPolicyURL`.
-- `Models/RoastMode.swift` — 14 modes (`classic` + 13 `guests`): persona prompt,
-  ElevenLabs voice id, icon, `previewLine`. `RoastFlavor` (`.roast` / `.compliment`)
-  picks `sharedPreamble` or `complimentPreamble` in `fullPrompt(flavor:)`.
+- `Models/AppConfig.swift` — backend URL + `privacyPolicyURL` (no keys).
+- `Models/RoastMode.swift` — 14 modes (`classic` + 13 `guests`): title, icon, tint,
+  `previewLine`; `RoastFlavor` (`.roast` / `.compliment`). Prompts/voices are server-side.
 - `Models/ModeTheme.swift` — per-mode "scene" (colors, painted backdrop image name, face-guide shape, hint).
-- `Services/RoastScriptService.swift` — OpenAI vision → script for a mode + flavor.
-- `Services/VoiceService.swift` — ElevenLabs TTS + AVAudioPlayer; voice previews cached in Caches.
-- `Services/RoastEngine.swift` — `@MainActor` pipeline orchestrator + phase state;
-  forwards `VoiceService` change notifications.
+- `Services/Backend.swift` — App Attest signing, wallet id (Keychain), calls to the Edge Function, `Wallet`.
+- `Services/VoiceService.swift` — AVAudioPlayer playback; previews play bundled `Previews/preview_<id>.mp3`.
+- `Services/RoastEngine.swift` — `@MainActor` show orchestrator (server `show` → `voice`) + phase state.
 - `Services/VideoExporter.swift` — photo + audio + mode badge → shareable 1080×1920 MP4.
-- `Store/StoreManager.swift` — StoreKit 2: free-run flags, `canRun(flavor)`,
-  `consumeFreeRun`, purchase/restore.
+- `Store/StoreManager.swift` — Box Office: ticket packs, wallet from the server, purchase → server credit → finish.
 - `Views/RootView.swift` — nav; pushes ResultView when a run starts.
 - `Views/HomeView.swift` — the **Stage**: camera-first, themed face guide, ticket
   banner (free runs left / unlock pitch), mechanical control panel. Shutter gates
@@ -67,7 +91,7 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 - `Views/LivePortraitView.swift` — `CameraController` + `CameraPreview` (AVCaptureSession).
 - `Views/ResultView.swift` — audio-first show: full-frame photo,
   CRANK IT UP banner, TRY AGAIN capsule 5s in, transcript sheet, video-first share.
-- `Views/PaywallView.swift` — lineup grid, one buy button, restore, policy link.
+- `Views/PaywallView.swift` — the Box Office: three packs, deal copy, policy link.
 - `Views/ImagePicker.swift` — `ShareSheet` (+ legacy `CameraPicker`, unused).
 
 ## Web, listing, screenshots
@@ -93,11 +117,10 @@ below, bold silhouettes, violet shadows). There is no runtime image generation.
 - Content safety: every run is framed by the preamble as a comedian working an
   *old photo of the user* — no cruelty, protected characteristics, or profanity
   beyond "damn". Users should only roast their own photos (App Review).
-- API keys ship client-side (MVP). Move calls behind a backend proxy before a wide launch.
 
 ## Known-good next steps / ideas
 - Streamed TTS playback (start audio before the full clip arrives).
-- Backend proxy for API keys.
+- DeviceCheck bits so free runs can't be farmed by wiping the keychain.
 
 ## Git
 - `main` tracks `https://github.com/pbakerx/roast_machine.git` (public repo).
