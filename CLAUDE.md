@@ -11,11 +11,23 @@ No images are generated or streamed onto the show — Philip cut both the Gemini
 art and the emoji sticker stream as not useful; don't reintroduce them.
 
 ## ⚠️ Canonical location (read first)
-- **Work here:** `/Users/philipbaker/Software Development/RoastMachine 2.0` (non-cloud drive, this repo).
-- **Stale copy — do NOT use:** `/Users/philipbaker/Documents/Client Work/pb/RoastMachine 2.0`
-  (old iCloud copy, original graphics, no git repo). It has caused "old version"
-  build confusion. If Xcode opens a project titled RoastMachine, confirm the path
-  is under **Software Development** before building.
+- **Source of truth (work here):** the NAS folder
+  `/Volumes/Home/02. Project Files/01. Software Development/roast machine`
+  (THEVAULT, mounted at `/Volumes/Home`). This folder is the git repo; `main`
+  tracks `github.com/pbakerx/roast_machine`. Moved here 2026-09-28 at `9cf0d63`.
+- **Old copies, kept but do NOT use** (each has a `DO-NOT-USE-README.txt`):
+  - `/Users/philipbaker/Software Development/RoastMachine 2.0 (OLD-see-NAS)`:
+    the working copy until 2026-09-28, frozen identical to the NAS at `9cf0d63`.
+  - `/Users/philipbaker/Documents/Client Work/pb/RoastMachine 2.0 (OLD-see-NAS)`:
+    July iCloud copy, original graphics, no git repo.
+  If Xcode opens a project titled RoastMachine, confirm the path is on
+  `/Volumes/Home/...` before building.
+- `DATABASE.md` and `supabase-multi-app-handoff.md` sit beside the repo on the
+  NAS but are excluded from git (`.git/info/exclude`). They describe the shared
+  Supabase project; never commit them to this public repo.
+- Git on the NAS share: if git says "another git process seems to be running",
+  move the stale `.lock` file into `.git/trash/` (rename works where delete may
+  not). See `00. MasterTechNotesForClaude/MOVING-PROJECTS-RUNBOOK.md`.
 
 ## Build, run, test
 1. Open `RoastMachine.xcodeproj` (Xcode 26, objectVersion 70, iOS 18.5 target, Swift 5). iPhone-only, portrait-only.
