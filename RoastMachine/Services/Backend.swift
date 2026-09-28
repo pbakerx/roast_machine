@@ -95,8 +95,9 @@ actor Backend {
         return try decode(ShowResult.self, data)
     }
 
-    func voice(showID: String) async throws -> Data {
-        try await send("voice", ["showId": showID])
+    /// `voice` is a key from Voice.all; the server whitelists it.
+    func voice(showID: String, voice: String) async throws -> Data {
+        try await send("voice", ["showId": showID, "voice": voice])
     }
 
     struct CreditResult: Decodable {

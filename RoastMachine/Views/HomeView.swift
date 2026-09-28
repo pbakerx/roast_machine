@@ -22,11 +22,23 @@ struct HomeView: View {
     @State private var showPaywall = false
     @State private var showConsent = false
     @AppStorage("rm.aiConsentGiven") private var aiConsentGiven = false
+    @AppStorage("rm.voice.roast") private var roastVoiceID = Voice.defaultRoast
+    @AppStorage("rm.voice.hype") private var hypeVoiceID = Voice.defaultHype
+    @State private var showVoicePicker = false
 
     private var selectedMode: RoastMode {
         RoastMode.all.first { $0.id == selectedID } ?? RoastMode.classic
     }
     private var theme: ModeTheme { selectedMode.theme }
+
+    /// The voice for whichever way the rocker points.
+    private var currentVoice: Voice {
+        Voice.withID(flavor == .compliment ? hypeVoiceID : roastVoiceID)
+    }
+
+    private var voiceIDBinding: Binding<String> {
+        flavor == .compliment ? $hypeVoiceID : $roastVoiceID
+    }
 
     var body: some View {
         ZStack {
@@ -61,6 +73,12 @@ struct HomeView: View {
         }
         .onDisappear { camera.stop() }
         .sheet(isPresented: $showPaywall) { PaywallView().environmentObject(store) }
+        .onChange(of: store.tickets) { _, tickets in
+            if tickets > 0 { engine.voice.stopSoldOut() }
+        }
+        .sheet(isPresented: $showVoicePicker) {
+            VoicePickerView(flavor: flavor, selectedID: voiceIDBinding, voice: engine.voice)
+        }
         .sheet(isPresented: $showConsent) {
             AIConsentView {
                 aiConsentGiven = true
@@ -161,19 +179,17 @@ struct HomeView: View {
 
             VStack(spacing: 12) {
                 sceneLabel
-                FlavorSwitch(flavor: $flavor)
+                HStack(spacing: 10) {
+                    FlavorSwitch(flavor: $flavor)
+                    VoicePill(voice: currentVoice) { showVoicePicker = true }
+                }
                 ModeDial(
                     modes: RoastMode.all,
                     selectedID: $selectedID,
                     // Every comedian is pickable; the shutter is what's gated.
                     // Padlocks light up once this flavor's free run is spent.
                     isLocked: { _ in !store.canRun(flavor) },
-                    onSelect: { mode in selectedID = mode.id },
-                    // Audition any voice — locked ones too; it sells the unlock.
-                    onPreview: { mode in
-                        Task { await engine.voice.preview(mode, flavor: flavor) }
-                    },
-                    previewingID: engine.voice.previewingModeID
+                    onSelect: { mode in selectedID = mode.id }
                 )
                 actionRow
             }
@@ -184,8 +200,6 @@ struct HomeView: View {
         .padding(.bottom, 6)
     }
 
-    /// Shows what's still on the house; once both tastes are spent it turns
-    /// into the unlock pitch.
     /// Free runs first, then the ticket count, then the pitch.
     private var ticketBanner: some View {
         let roast = store.freeRunRemaining(for: .roast)
@@ -302,7 +316,8 @@ struct HomeView: View {
     /// `RM_DEMO_PHOTO=/path` drops a photo onto the Stage (the simulator has no
     /// camera and its photo picker is unreliable); `RM_DEMO_MODE=<mode id>` and
     /// `RM_DEMO_FLAVOR=roast|compliment` preset the panel; `RM_DEMO_AUTORUN=1`
-    /// accepts the consent sheet and fires the shutter; `RM_DEMO_BOXOFFICE=1` opens the Box Office.
+    /// accepts the consent sheet and fires the shutter; `RM_DEMO_BOXOFFICE=1` opens the Box Office;
+    /// `RM_DEMO_VOICE=<key>` picks the voice and `RM_DEMO_VOICEPICKER=1` opens the picker.
     private func loadDemoPhotoIfRequested() {
         let env = ProcessInfo.processInfo.environment
         guard libraryImage == nil,
@@ -318,6 +333,12 @@ struct HomeView: View {
         if env["RM_DEMO_BOXOFFICE"] == "1" {
             showPaywall = true
         }
+        if let key = env["RM_DEMO_VOICE"], Voice.all.contains(where: { $0.id == key }) {
+            if flavor == .compliment { hypeVoiceID = key } else { roastVoiceID = key }
+        }
+        if env["RM_DEMO_VOICEPICKER"] == "1" {
+            showVoicePicker = true
+        }
         if env["RM_DEMO_AUTORUN"] == "1" {
             aiConsentGiven = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { capture() }
@@ -331,6 +352,10 @@ struct HomeView: View {
         // Gate before the photo is taken so a spent free run goes straight
         // to the pitch instead of firing the flash for nothing.
         guard store.canRun(flavor) else {
+            // No tickets: the comedian tells them off (harder each try) on the
+            // way to the Box Office.
+            Haptics.thunk()
+            engine.voice.playSoldOut(currentVoice, strike: store.nextSoldOutStrike())
             showPaywall = true
             return
         }
@@ -352,6 +377,7 @@ struct HomeView: View {
         let mode = selectedMode
         let flavor = flavor
         // The server spends the free run or ticket and has the final say.
-        Task { await engine.run(image: image, mode: mode, flavor: flavor, store: store) }
+        let voiceID = currentVoice.id
+        Task { await engine.run(image: image, mode: mode, flavor: flavor, voiceID: voiceID, store: store) }
     }
 }

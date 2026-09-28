@@ -257,6 +257,46 @@ struct FlavorSwitch: View {
     }
 }
 
+// MARK: - Voice pill
+
+/// Shows who's delivering the bit; tap to pick a different voice.
+struct VoicePill: View {
+    let voice: Voice
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                Text(voice.emoji).font(.system(size: 14))
+                Text(voice.name.uppercased())
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .tracking(1)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .heavy))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12).padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .fill(Color(white: 0.08))
+                    .overlay(
+                        Capsule().stroke(
+                            LinearGradient(colors: [.black.opacity(0.7), .white.opacity(0.25)],
+                                           startPoint: .top, endPoint: .bottom),
+                            lineWidth: 1.5
+                        )
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Voice: \(voice.name)")
+    }
+}
+
 // MARK: - Shutter
 
 struct ShutterButton: View {

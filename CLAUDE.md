@@ -25,9 +25,11 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 3. Signing: team `55Y3LX4J5J`, bundle id `AechTech.RoastMachine`, automatic signing,
    App Attest entitlement in `RoastMachine.entitlements`.
    Bump `CURRENT_PROJECT_VERSION` for every App Store Connect upload.
-4. Tests: `RoastMachineTests` (catalog ↔ server personas, bundled previews, wallet
-   gating). Run on the dedicated sim "RM-Tests iPhone 17 Pro" — Philip runs other
-   Xcode sessions, so don't reuse or quit his simulators/Xcode.
+4. Tests: `RoastMachineTests` (catalog ↔ server personas, voices ↔ server
+   `VOICE_CATALOG`, bundled voice samples + sold-out clips, sold-out strike count,
+   wallet gating). Run on the dedicated sim "RM-Shots iPhone 17 Pro Max"
+   (AED246CA…) — Philip runs other Xcode sessions, so don't reuse or quit his
+   simulators/Xcode.
    Server tests: `cd supabase/functions && deno test --allow-net --allow-env --allow-read _shared/apple_test.ts`.
 5. StoreKit: the shared scheme pins `Subscriptions.storekit` for Xcode-launched runs;
    everything else hits the sandbox/production products in App Store Connect.
@@ -46,8 +48,11 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
   routes `challenge`, `register`, `wallet`, `show`, `voice`, `credit`. Connects to
   Postgres directly via `SUPABASE_DB_URL`. Deploy:
   `supabase functions deploy roastmachine --project-ref jqvohqudydzolyqfijrb --use-api --no-verify-jwt`.
-- `_shared/personas.ts` — **source of truth** for comedian prompts + ElevenLabs
-  voices + ticket products. The app sends a mode id, never a prompt.
+- `_shared/personas.ts` — **source of truth** for comedian prompts, the
+  `VOICE_CATALOG` (8 pickable voices, key → ElevenLabs id; defaults larry/ace)
+  and ticket products. The app sends a mode id and a voice key, never a prompt
+  or a voice id; unknown keys fall back to the default, and a voice its owner
+  disabled falls back to a premade one (`FALLBACK_VOICES`).
 - Security: every request carries an **App Attest** assertion (genuine app on a
   genuine iPhone; counter blocks replay). Purchases are StoreKit 2 JWS verified
   against Apple Root CA G3 and credited once per transaction id, only to the
@@ -70,22 +75,31 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 ## Architecture (`RoastMachine/`)
 - `RoastMachineApp.swift` — entry; owns `StoreManager`, loads products + entitlements.
 - `Models/AppConfig.swift` — backend URL + `privacyPolicyURL` (no keys).
-- `Models/RoastMode.swift` — 14 modes (`classic` + 13 `guests`): title, icon, tint,
-  `previewLine`; `RoastFlavor` (`.roast` / `.compliment`). Prompts/voices are server-side.
+- `Models/RoastMode.swift` — 14 modes (`classic` + 13 `guests`): title, icon, tint;
+  `RoastFlavor` (`.roast` / `.compliment`). Prompts are server-side.
+- `Models/Voice.swift` — the 8 voices (key, name, vibe, emoji). Keys must match
+  `VOICE_CATALOG`. The choice is per flavor: `rm.voice.roast` / `rm.voice.hype`.
 - `Models/ModeTheme.swift` — per-mode "scene" (colors, painted backdrop image name, face-guide shape, hint).
 - `Services/Backend.swift` — App Attest signing, wallet id (Keychain), calls to the Edge Function, `Wallet`.
-- `Services/VoiceService.swift` — AVAudioPlayer playback; previews play bundled `Previews/preview_<id>.mp3`.
+- `Services/VoiceService.swift` — AVAudioPlayer playback of shows, voice samples
+  (`Previews/voice_<key>_<roast|hype>.mp3`) and sold-out roasts
+  (`Previews/soldout_<key>_<1|2|3>.mp3`). Re-record all of them with
+  `scripts/record_previews.py [samples|soldout|all] [voice …]` after changing voices.
 - `Services/RoastEngine.swift` — `@MainActor` show orchestrator (server `show` → `voice`) + phase state.
 - `Services/VideoExporter.swift` — photo + audio + mode badge → shareable 1080×1920 MP4.
-- `Store/StoreManager.swift` — Box Office: ticket packs, wallet from the server, purchase → server credit → finish.
+- `Store/StoreManager.swift` — Box Office: ticket packs, wallet from the server,
+  purchase → server credit → finish. Also the sold-out strike count
+  (`rm.soldOutStrikes`, 1 → 2 → 3 and holds; resets when tickets > 0).
 - `Views/RootView.swift` — nav; pushes ResultView when a run starts.
 - `Views/HomeView.swift` — the **Stage**: camera-first, themed face guide, ticket
-  banner (free runs left / unlock pitch), mechanical control panel. Shutter gates
-  on `store.canRun` → paywall, then on AI consent → `AIConsentView`.
+  banner (free runs left / unlock pitch), mechanical control panel with the
+  ROAST/HYPE rocker + `VoicePill`. Shutter gates on `store.canRun` → escalating
+  sold-out roast in the chosen voice + Box Office, then on AI consent → `AIConsentView`.
 - `Views/AIConsentView.swift` — one-time "Before the Show" disclosure + permission
   (App Review 5.1.2(i): third-party AI data sharing). Stored in `rm.aiConsentGiven`.
+- `Views/VoicePickerView.swift` — sheet of voice cards; tap selects + plays a sample.
 - `Views/StageComponents.swift` — tactile UI kit: `MetalPanel`, `ModeDial`,
-  `FlavorSwitch` (ROAST/HYPE rocker), `ShutterButton`, `FaceGuideOverlay`,
+  `FlavorSwitch` (ROAST/HYPE rocker), `VoicePill`, `ShutterButton`, `FaceGuideOverlay`,
   `ThematicBackdrop`, `SceneScrim`, `Haptics`.
 - `Views/EmberField.swift` — drifting embers for the Classic stage.
 - `Views/LivePortraitView.swift` — `CameraController` + `CameraPreview` (AVCaptureSession).
@@ -106,7 +120,10 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 - Simulator screenshot rig (DEBUG + simulator only, compiled out of Release):
   `SIMCTL_CHILD_RM_DEMO_PHOTO=<jpg>` drops a photo onto the Stage (the sim has no
   camera and `simctl addmedia` crashes on Xcode 26.6); `SIMCTL_CHILD_RM_DEMO_UNLOCK=1`
-  shows the paid experience.
+  shows the paid experience. Also `RM_DEMO_MODE`, `RM_DEMO_FLAVOR`, `RM_DEMO_AUTORUN=1`
+  (accept consent + fire the shutter), `RM_DEMO_BOXOFFICE=1`, `RM_DEMO_VOICE=<key>`,
+  `RM_DEMO_VOICEPICKER=1`, and `RM_DEMO_SOLDOUT=1` (empty wallet: with AUTORUN it
+  plays the next sold-out roast).
 
 ## Art pipeline
 Backdrops (`Assets.xcassets/Backdrops/backdrop_<modeid>`) and the app icon are

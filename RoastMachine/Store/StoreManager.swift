@@ -37,7 +37,9 @@ final class StoreManager: ObservableObject {
 
     @Published private(set) var products: [Product] = []
     /// Nil until the first server fetch lands.
-    @Published private(set) var wallet: Wallet?
+    @Published private(set) var wallet: Wallet? {
+        didSet { resetSoldOutStrikesIfStocked() }
+    }
     @Published var purchaseInFlight = false
     @Published var isLoadingProducts = false
     @Published var didAttemptLoad = false
@@ -61,6 +63,15 @@ final class StoreManager: ObservableObject {
 
     /// Called once at launch.
     func start() async {
+#if DEBUG && targetEnvironment(simulator)
+        // Test rig: `SIMCTL_CHILD_RM_DEMO_SOLDOUT=1` starts with an empty wallet
+        // so the sold-out roasts can be heard without touching the server.
+        if ProcessInfo.processInfo.environment["RM_DEMO_SOLDOUT"] == "1" {
+            wallet = Wallet(tickets: 0, freeRoast: false, freeHype: false)
+            await loadProducts()
+            return
+        }
+#endif
         await loadProducts()
         await refreshWallet()
         // Credit anything bought but not yet acknowledged (e.g. the app was killed mid-purchase).
@@ -85,6 +96,24 @@ final class StoreManager: ObservableObject {
     }
 
     var showsTicketBanner: Bool { !Self.demoUnlock && wallet != nil }
+
+    // MARK: - Sold out
+
+    private static let soldOutStrikesKey = "rm.soldOutStrikes"
+
+    /// Counts shutter presses with no tickets: 1 nudges, 2 stings, 3 (and
+    /// every try after) is the savage one. Starts over once tickets are bought.
+    func nextSoldOutStrike() -> Int {
+        let strike = min(UserDefaults.standard.integer(forKey: Self.soldOutStrikesKey) + 1, 3)
+        UserDefaults.standard.set(strike, forKey: Self.soldOutStrikesKey)
+        return strike
+    }
+
+    private func resetSoldOutStrikesIfStocked() {
+        if (wallet?.tickets ?? 0) > 0 {
+            UserDefaults.standard.removeObject(forKey: Self.soldOutStrikesKey)
+        }
+    }
 
     func apply(_ wallet: Wallet?) {
         if let wallet { self.wallet = wallet }

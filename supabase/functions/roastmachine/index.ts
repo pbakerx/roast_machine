@@ -14,7 +14,7 @@ import postgres from "npm:postgres@3.4.5";
 import {
   b64decode, b64encode, BUNDLE_ID, sha256, verifyAssertion, verifyAttestation, verifyTransaction,
 } from "../_shared/apple.ts";
-import { cleanScript, FALLBACK_VOICES, type Flavor, PERSONAS, PRODUCTS, systemPrompt, userPrompt, VOICES } from "../_shared/personas.ts";
+import { cleanScript, FALLBACK_VOICES, type Flavor, PERSONAS, PRODUCTS, systemPrompt, userPrompt, voiceFor } from "../_shared/personas.ts";
 
 const env = (k: string, fallback = "") => Deno.env.get(k) ?? fallback;
 const sql = postgres(env("SUPABASE_DB_URL"), { prepare: false, max: 3 });
@@ -143,7 +143,7 @@ async function show(req: Request, caller: Caller, body: Record<string, string>):
 }
 
 async function voice(caller: Caller, body: Record<string, string>): Promise<Response> {
-  const { showId } = body;
+  const { showId, voice: voiceKey } = body;
   if (!/^[0-9a-f-]{36}$/i.test(showId ?? "")) throw new HttpError(400, "bad_request");
   const [s] = await sql`
     select flavor, script from app_roastmachine.shows
@@ -152,10 +152,11 @@ async function voice(caller: Caller, body: Record<string, string>): Promise<Resp
   if (!s) throw new HttpError(404, "no_such_show");
 
   const flavor = s.flavor as Flavor;
-  let res = await speak(VOICES[flavor], s.script);
+  const voiceId = voiceFor(flavor, voiceKey);
+  let res = await speak(voiceId, s.script);
   if ([401, 403, 404].includes(res.status)) {
     // The chosen library voice was disabled or removed; don't fail the show.
-    console.error("voice unavailable, using fallback", VOICES[flavor], res.status, (await res.text()).slice(0, 200));
+    console.error("voice unavailable, using fallback", voiceId, res.status, (await res.text()).slice(0, 200));
     res = await speak(FALLBACK_VOICES[flavor], s.script);
   }
   if (!res.ok) {

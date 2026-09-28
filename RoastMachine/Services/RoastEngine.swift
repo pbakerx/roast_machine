@@ -46,7 +46,7 @@ final class RoastEngine: ObservableObject {
         }
     }
 
-    func run(image: UIImage, mode: RoastMode, flavor: RoastFlavor, store: StoreManager) async {
+    func run(image: UIImage, mode: RoastMode, flavor: RoastFlavor, voiceID: String, store: StoreManager) async {
         self.image = image
         self.mode = mode
         self.flavor = flavor
@@ -60,7 +60,7 @@ final class RoastEngine: ObservableObject {
             script = show.script
 
             phase = .voicing
-            let data = try await backend.voice(showID: show.showId)
+            let data = try await backend.voice(showID: show.showId, voice: voiceID)
             audio = data
 
             phase = .ready

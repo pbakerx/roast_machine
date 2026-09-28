@@ -35,7 +35,7 @@ struct PaywallView: View {
                     }
 
                     VStack(spacing: 6) {
-                        Text("1 ticket = 1 roast or 1 hype, with any comedian.")
+                        Text("1 ticket = 1 roast or 1 hype, any comedian, any voice.")
                         Text("Replays and shares are free. Tickets never expire.")
                     }
                     .font(.footnote.weight(.semibold))

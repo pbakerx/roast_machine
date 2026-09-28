@@ -28,7 +28,10 @@ Point the camera at your face. Pick a comedian. Get roasted — out loud.
 
 Roast Machine is a stand-up act in your pocket. Snap a photo (or grab one from your library), spin the dial to one of 14 AI comedians, and hit the big button. Seconds later a real voice is ripping into your outfit, your hair, your pose, your whole vibe.
 
-Feeling fragile? Flip the switch to HYPE and the same comedians go the other way: over-the-top, no-notes, you-are-a-legend compliments. Same voices. All love.
+Feeling fragile? Flip the switch to HYPE and the same comedians go the other way: over-the-top, crown-on-your-head, you-are-a-legend compliments. All love.
+
+PICK YOUR VOICE
+Choose who delivers the bit: a hype man, a buzzing bee, a salty pirate, a cheeky Cockney, a gravelly cowboy, and more. Set one voice for roasts and another for hype.
 
 THE LINEUP
 • Classic Roast — a late-night headliner works the crowd
@@ -46,18 +49,20 @@ Your first roast and your first hype are free. After that, each show is one tick
 • Top-Up — 8 shows for $1.99
 • Opening Act — 20 shows for $3.99
 • Headliner — 60 shows for $9.99
-One ticket = one roast or one hype, with any comedian. Replays and shares are free, tickets never expire, and there's no subscription.
+One ticket = one roast or one hype, with any comedian and any voice. Run out and the comedian will let you know. Loudly. Replays and shares are free, tickets never expire, and there's no subscription.
 
 PLAY NICE
 Before the first show the app asks your permission and tells you exactly where your photo goes. Every bit is written by an AI comedian playing a character, with guardrails: it only riffs on what's in the picture — never on who you are. Roast yourself, or friends who are in on the joke.
 
 ## Keywords (≤100 chars)
 
-roast,comedy,funny,joke,ai,voice,photo,compliment,hype,humor,party,selfie,prank,burn,standup
+funny,comedy,joke,laugh,meme,insult,compliment,hype,selfie,face,voice,prank,humor,standup,burn
+
+The name and subtitle already index "roast", "AI", "comedians" and "photo", so the keywords skip them.
 
 ## What's New (1.0)
 
-The machine is open. 14 comedians, one big button, and a HYPE switch for when you need it.
+The machine is open. 14 comedians, 8 voices, one big button, and a HYPE switch for when you need it.
 
 ## App Privacy (nutrition label)
 

@@ -2,7 +2,7 @@ import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 import * as x509 from "npm:@peculiar/x509@1.12.3";
 import { b64decode, ecdsaVerify, signedBy, verifyAssertion, verifyAttestation, verifyTransaction } from "./apple.ts";
 import { APP_ATTEST_ROOT_B64, APPLE_ROOT_G3_B64 } from "./certs.ts";
-import { cleanScript, PERSONAS, PRODUCTS, systemPrompt, VOICES } from "./personas.ts";
+import { cleanScript, PERSONAS, PRODUCTS, systemPrompt, VOICE_CATALOG, voiceFor } from "./personas.ts";
 
 Deno.test("Apple's P-384 roots verify their own signatures", () => {
   for (const b64 of [APP_ATTEST_ROOT_B64, APPLE_ROOT_G3_B64]) {
@@ -35,9 +35,13 @@ Deno.test("every comedian has a prompt, for both flavors", () => {
   }
 });
 
-Deno.test("one voice per flavor", () => {
-  assertEquals(VOICES.roast, "fIGaHjfrR8KmMy0vGEVJ");
-  assertEquals(VOICES.compliment, "542jzeOaLKbcpZhWfJDa");
+Deno.test("voice choice: catalog, defaults, and unknown keys", () => {
+  assertEquals(Object.keys(VOICE_CATALOG).sort(),
+    ["ace", "georgee", "larry", "lizzie", "minnie", "ranger", "tom", "ziggy"]);
+  assertEquals(voiceFor("roast"), VOICE_CATALOG.larry);
+  assertEquals(voiceFor("compliment"), VOICE_CATALOG.ace);
+  assertEquals(voiceFor("roast", "tom"), VOICE_CATALOG.tom);
+  assertEquals(voiceFor("compliment", "not-a-voice"), VOICE_CATALOG.ace, "unknown keys fall back");
   assert(systemPrompt("drill", "compliment").includes("royalty"));
 });
 

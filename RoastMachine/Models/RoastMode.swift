@@ -29,48 +29,6 @@ struct RoastMode: Identifiable, Hashable {
 
 extension RoastMode {
 
-    /// A 3–4 word taste of the persona, spoken by the voice-preview button in ROAST mode.
-    var previewLine: String {
-        switch id {
-        case "classic":     return "Look at this guy!"
-        case "nature":      return "Remarkable. Truly remarkable."
-        case "ramsay":      return "It's RAW!!"
-        case "mom":         return "I'm not mad."
-        case "shakespeare": return "Thou art absurd!"
-        case "disstrack":   return "Yo, check it."
-        case "beautiful":   return "You look INCREDIBLE!"
-        case "fortune":     return "I see... trouble."
-        case "drill":       return "Drop and give twenty!"
-        case "linkedin":    return "Thrilled to announce..."
-        case "conspiracy":  return "Wake up, sheeple!"
-        case "pickup":      return "Hey there, gorgeous."
-        case "datingbio":   return "Swipe right. Obviously."
-        case "pet":         return "Feed me, human."
-        default:            return "Get roasted!"
-        }
-    }
-
-    /// The HYPE-mode taste, spoken by the preview button when the rocker is on HYPE.
-    var hypePreviewLine: String {
-        switch id {
-        case "classic":     return "You're a LEGEND!"
-        case "nature":      return "A majestic creature!"
-        case "ramsay":      return "Stunning. Chef's kiss!"
-        case "mom":         return "I'm SO proud of you!"
-        case "shakespeare": return "Thou art radiant!"
-        case "disstrack":   return "Crown on your head!"
-        case "beautiful":   return "You look INCREDIBLE!"
-        case "fortune":     return "I see... greatness!"
-        case "drill":       return "Outstanding, soldier!"
-        case "linkedin":    return "Thrilled to celebrate you!"
-        case "conspiracy":  return "Too perfect to be real!"
-        case "pickup":      return "Hey there, royalty."
-        case "datingbio":   return "Instant swipe right!"
-        case "pet":         return "My human is PERFECT!"
-        default:            return "Your Majesty!"
-        }
-    }
-
     // MARK: - Catalog
 
     /// Dial order: the headliner first, then the guest lineup. Every comedian

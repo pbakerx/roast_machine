@@ -24,12 +24,35 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(RoastMode.all.first?.id, "classic")
     }
 
-    func testEveryComedianHasABundledPreview() {
+    /// Must match VOICE_CATALOG in supabase/functions/_shared/personas.ts.
+    private let serverVoiceKeys: Set<String> = [
+        "larry", "ace", "ziggy", "georgee", "minnie", "tom", "lizzie", "ranger",
+    ]
+
+    func testVoicesMatchServerCatalog() {
+        XCTAssertEqual(Set(Voice.all.map(\.id)), serverVoiceKeys)
+        XCTAssertEqual(Voice.all.count, serverVoiceKeys.count)
+        XCTAssertEqual(Voice.withID(Voice.defaultRoast).id, "larry")
+        XCTAssertEqual(Voice.withID(Voice.defaultHype).id, "ace")
+        XCTAssertEqual(Voice.withID("retired-voice").id, Voice.all[0].id)
+    }
+
+    func testEveryVoiceHasBundledSamples() {
         let bundle = Bundle(for: StoreManager.self)
-        for mode in RoastMode.all {
+        for voice in Voice.all {
             for flavor in ["roast", "hype"] {
-                XCTAssertNotNil(bundle.url(forResource: "preview_\(mode.id)_\(flavor)", withExtension: "mp3"),
-                                "\(mode.id) \(flavor)")
+                XCTAssertNotNil(bundle.url(forResource: "voice_\(voice.id)_\(flavor)", withExtension: "mp3"),
+                                "\(voice.id) \(flavor)")
+            }
+        }
+    }
+
+    func testEveryVoiceHasSoldOutRoasts() {
+        let bundle = Bundle(for: StoreManager.self)
+        for voice in Voice.all {
+            for strike in 1...3 {
+                XCTAssertNotNil(bundle.url(forResource: "soldout_\(voice.id)_\(strike)", withExtension: "mp3"),
+                                "\(voice.id) strike \(strike)")
             }
         }
     }
@@ -65,5 +88,28 @@ final class WalletTests: XCTestCase {
         let json = #"{"tickets":7,"free_roast":false,"free_hype":true}"#.data(using: .utf8)!
         let w = try JSONDecoder().decode(Wallet.self, from: json)
         XCTAssertEqual(w, Wallet(tickets: 7, freeRoast: false, freeHype: true))
+    }
+}
+
+@MainActor
+final class SoldOutTests: XCTestCase {
+
+    override func setUp() {
+        UserDefaults.standard.removeObject(forKey: "rm.soldOutStrikes")
+    }
+
+    func testStrikesEscalateThenHoldAtThree() {
+        let store = StoreManager()
+        XCTAssertEqual((1...5).map { _ in store.nextSoldOutStrike() }, [1, 2, 3, 3, 3])
+    }
+
+    func testBuyingTicketsStartsTheCountOver() {
+        let store = StoreManager()
+        _ = store.nextSoldOutStrike()
+        _ = store.nextSoldOutStrike()
+        store.apply(Wallet(tickets: 0, freeRoast: false, freeHype: false))
+        XCTAssertEqual(store.nextSoldOutStrike(), 3, "an empty wallet doesn't reset")
+        store.apply(Wallet(tickets: 8, freeRoast: false, freeHype: false))
+        XCTAssertEqual(store.nextSoldOutStrike(), 1)
     }
 }

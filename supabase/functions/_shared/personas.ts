@@ -31,12 +31,25 @@ picture — never about protected characteristics or private facts. No profanity
 "damn". Keep it to 3-4 punchy sentences, under 60 words, that sound great read aloud. \
 Output ONLY the spoken lines, no stage directions or quotation marks.`;
 
-// One voice per flavor for every comedian (Philip's call): comedians differ in
-// what they say, not how they sound.
-export const VOICES: Record<Flavor, string> = {
-  roast: "fIGaHjfrR8KmMy0vGEVJ",      // Larry – high-energy social media voice
-  compliment: "542jzeOaLKbcpZhWfJDa", // Whimsy – kid's cartoon character
+// The voices users can pick from (Philip's list). Keys are what the app sends;
+// only keys in this catalog are accepted. Keep in sync with Voice.all in the app.
+export const VOICE_CATALOG: Record<string, string> = {
+  larry: "fIGaHjfrR8KmMy0vGEVJ",   // Larry – high-energy social media voice
+  ace: "lfJmb3Lf1Zeu8bxTQtiL",     // ACE the Bee (Philip's own generated voice)
+  ziggy: "fjgAVa6FpNYGo4UpjqML",   // Ziggy – cute little Australian character
+  georgee: "eh3mW70o6niXfNTuBPbY", // Georgee – cartoon character
+  minnie: "eppqEXVumQ3CfdndcIBd",  // Minnie – high-pitch cartoon character
+  tom: "U4Y0Z2HmYcQYMkJB8hrg",     // Tom – pirate character
+  lizzie: "EQx6HGDYjkDpcli6vorJ",  // Lizzie – Cockney character
+  ranger: "iEvYV2o9zHf3RDl9U51b",  // Desert Ranger – character
 };
+
+/** Voice used when the app doesn't send a choice (or sends an unknown one). */
+export const DEFAULT_VOICE: Record<Flavor, string> = { roast: "larry", compliment: "ace" };
+
+export function voiceFor(flavor: Flavor, key?: string): string {
+  return VOICE_CATALOG[key ?? ""] ?? VOICE_CATALOG[DEFAULT_VOICE[flavor]];
+}
 
 // ElevenLabs' own premade voices, used if a library voice above is ever
 // disabled or removed by its owner (as happened with "Whimsy").

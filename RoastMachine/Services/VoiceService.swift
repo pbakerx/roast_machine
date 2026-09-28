@@ -18,6 +18,7 @@ final class VoiceService: NSObject, ObservableObject {
 
     /// Plays mp3 data. Configures the audio session so it's audible even on silent mode.
     func play(_ data: Data) {
+        soldOutPlaying = false
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
             try AVAudioSession.sharedInstance().setActive(true)
@@ -33,26 +34,44 @@ final class VoiceService: NSObject, ObservableObject {
     }
 
     func stop() {
+        soldOutPlaying = false
         player?.stop()
         isPlaying = false
     }
 
     // MARK: - Voice preview
 
-    /// Mode id currently synthesizing/speaking its preview line, for UI spinners.
-    @Published var previewingModeID: String?
+    /// Voice id whose sample is playing, for the picker's speaker icon.
+    @Published var previewingID: String?
 
-    /// Plays the mode's short preview line in the current flavor's voice,
-    /// pre-recorded into the app bundle so auditioning costs nothing.
-    func preview(_ mode: RoastMode, flavor: RoastFlavor) async {
-        if previewingModeID != nil { return }
-        let name = "preview_\(mode.id)_\(flavor == .compliment ? "hype" : "roast")"
+    /// Plays a voice's sample line for the given flavor, pre-recorded into the
+    /// app bundle so auditioning voices costs nothing.
+    func previewVoice(_ voice: Voice, flavor: RoastFlavor) async {
+        let name = "voice_\(voice.id)_\(flavor == .compliment ? "hype" : "roast")"
         guard let url = Bundle.main.url(forResource: name, withExtension: "mp3"),
               let data = try? Data(contentsOf: url) else { return }
-        previewingModeID = mode.id
+        previewingID = voice.id
         play(data)
-        try? await Task.sleep(for: .milliseconds(400))
-        previewingModeID = nil
+        try? await Task.sleep(for: .seconds(duration > 0 ? duration : 1.5))
+        if previewingID == voice.id { previewingID = nil }
+    }
+
+    // MARK: - Sold out
+
+    private var soldOutPlaying = false
+
+    /// The out-of-tickets roast for this strike (1-3), in the player's voice.
+    func playSoldOut(_ voice: Voice, strike: Int) {
+        guard let url = Bundle.main.url(forResource: "soldout_\(voice.id)_\(strike)", withExtension: "mp3"),
+              let data = try? Data(contentsOf: url) else { return }
+        play(data)
+        soldOutPlaying = true
+    }
+
+    /// A purchase landed: no need to keep telling them off.
+    func stopSoldOut() {
+        guard soldOutPlaying else { return }
+        stop()
     }
 
     func togglePlayback(_ data: Data) {
