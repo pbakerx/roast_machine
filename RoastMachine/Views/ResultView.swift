@@ -305,8 +305,18 @@ struct ResultView: View {
             Text(message)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white.opacity(0.85))
-            Button("Back") { dismiss() }
-                .buttonStyle(.borderedProminent)
+            if engine.outOfTickets {
+                Button("🎟️ Box Office") { showPaywall = true }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+            }
+            if engine.outOfTickets {
+                Button("Back") { dismiss() }
+                    .buttonStyle(.bordered)
+            } else {
+                Button("Back") { dismiss() }
+                    .buttonStyle(.borderedProminent)
+            }
         }
         .padding(24)
         .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 24))

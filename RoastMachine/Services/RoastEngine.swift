@@ -20,6 +20,8 @@ final class RoastEngine: ObservableObject {
     }
 
     @Published var phase: Phase = .idle
+    /// The last run failed because the wallet was empty.
+    @Published private(set) var outOfTickets = false
     @Published var script: String = ""
     @Published private(set) var audio: Data?
     @Published private(set) var mode: RoastMode?
@@ -52,6 +54,7 @@ final class RoastEngine: ObservableObject {
         self.flavor = flavor
         self.audio = nil
         self.script = ""
+        self.outOfTickets = false
 
         do {
             phase = .writing
@@ -67,6 +70,7 @@ final class RoastEngine: ObservableObject {
             voice.play(data)
         } catch {
             store.apply((error as? BackendError)?.wallet)
+            if case .noTickets = error as? BackendError { outOfTickets = true }
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             phase = .failed(message)
         }

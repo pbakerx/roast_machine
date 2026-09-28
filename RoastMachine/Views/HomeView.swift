@@ -349,6 +349,19 @@ struct HomeView: View {
 #endif
 
     private func capture() {
+        // Know the balance before deciding: a shutter press during launch
+        // used to start a show the server then refused.
+        guard store.hasWallet else {
+            Task {
+                await store.refreshWallet()
+                gatedCapture()
+            }
+            return
+        }
+        gatedCapture()
+    }
+
+    private func gatedCapture() {
         // Gate before the photo is taken so a spent free run goes straight
         // to the pitch instead of firing the flash for nothing.
         guard store.canRun(flavor) else {

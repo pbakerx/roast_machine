@@ -72,8 +72,11 @@ final class StoreManager: ObservableObject {
             return
         }
 #endif
-        await loadProducts()
+        // Wallet first: until it lands the Stage can't tell a player with no
+        // tickets from one with a free run. Products load alongside.
+        async let products: Void = loadProducts()
         await refreshWallet()
+        await products
         // Credit anything bought but not yet acknowledged (e.g. the app was killed mid-purchase).
         for await result in Transaction.unfinished {
             await process(result)
@@ -96,6 +99,9 @@ final class StoreManager: ObservableObject {
     }
 
     var showsTicketBanner: Bool { !Self.demoUnlock && wallet != nil }
+
+    /// True once the server's balance has been fetched at least once.
+    var hasWallet: Bool { Self.demoUnlock || wallet != nil }
 
     // MARK: - Sold out
 

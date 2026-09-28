@@ -41,6 +41,7 @@ enum BackendError: LocalizedError {
     case deviceNotSupported
     case attestationFailed
     case failed(Wallet?)
+    case offline
     case server(Int)
 
     var errorDescription: String? {
@@ -52,6 +53,7 @@ enum BackendError: LocalizedError {
         case .deviceNotSupported: return "This device can't be verified with Apple, so the machine can't run here."
         case .attestationFailed:  return "Couldn't verify this device with Apple. Check your connection and try again."
         case .failed:             return "The comedian choked. Your ticket's been refunded — try again."
+        case .offline:            return "Couldn't reach the club. Check your connection and try again."
         case .server(let code):   return "The machine hiccuped (\(code)). Try again."
         }
     }
@@ -131,7 +133,12 @@ actor Backend {
         var request = Self.request(route, payload)
         try await sign(&request, body: payload)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let data: Data, response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch is URLError {
+            throw BackendError.offline
+        }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if (200...299).contains(status) { return data }
 
@@ -233,11 +240,15 @@ actor Backend {
     }
 
     /// Downscaled JPEG keeps the upload small and fast; the photo is never stored.
-    private static func jpegBase64(_ image: UIImage) -> String? {
+    /// The renderer must use scale 1: the default is the screen's 3x, which
+    /// made a 768-point photo 2304 pixels and ~1 MB on cellular.
+    static func jpegBase64(_ image: UIImage) -> String? {
         let maxDimension: CGFloat = 768
         let scale = min(1, maxDimension / max(image.size.width, image.size.height))
         let target = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: target)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: target, format: format)
         let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: target)) }
         return resized.jpegData(compressionQuality: 0.7)?.base64EncodedString()
     }

@@ -113,3 +113,31 @@ final class SoldOutTests: XCTestCase {
         XCTAssertEqual(store.nextSoldOutStrike(), 1)
     }
 }
+
+final class UploadTests: XCTestCase {
+
+    /// A 12 MP camera photo must go up as a 768 px JPEG, not 768 pt at 3x.
+    func testPhotoUploadIsDownscaledToPixels() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let photo = UIGraphicsImageRenderer(size: CGSize(width: 3024, height: 4032), format: format).image { ctx in
+            UIColor.orange.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 3024, height: 4032))
+        }
+        let b64 = try XCTUnwrap(Backend.jpegBase64(photo))
+        let sent = try XCTUnwrap(UIImage(data: try XCTUnwrap(Data(base64Encoded: b64))))
+        XCTAssertEqual(max(sent.size.width, sent.size.height) * sent.scale, 768, accuracy: 1)
+    }
+}
+
+@MainActor
+final class WalletGateTests: XCTestCase {
+
+    func testShutterWaitsUntilTheWalletLoads() {
+        let store = StoreManager()
+        XCTAssertFalse(store.hasWallet)
+        store.apply(Wallet(tickets: 0, freeRoast: false, freeHype: false))
+        XCTAssertTrue(store.hasWallet)
+        XCTAssertFalse(store.canRun(.roast))
+    }
+}
