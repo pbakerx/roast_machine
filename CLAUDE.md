@@ -28,8 +28,10 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 4. Tests: `RoastMachineTests` (catalog ↔ server personas, voices ↔ server
    `VOICE_CATALOG`, bundled voice samples + sold-out clips, sold-out strike count,
    wallet gating). Run on the dedicated sim "RM-Shots iPhone 17 Pro Max"
-   (AED246CA…) — Philip runs other Xcode sessions, so don't reuse or quit his
-   simulators/Xcode.
+   (AED246CA…); iPad compatibility checks on "RM-iPad" (iPad Pro 13-inch, 64365EEF…).
+   Philip runs other Xcode sessions, so don't reuse or quit his simulators/Xcode.
+   Purchases only work in TestFlight builds (or with a sandbox test account);
+   a build installed straight from Xcode rejects a normal Apple account.
    Server tests: `cd supabase/functions && deno test --allow-net --allow-env --allow-read _shared/apple_test.ts`.
 5. StoreKit: the shared scheme pins `Subscriptions.storekit` for Xcode-launched runs;
    everything else hits the sandbox/production products in App Store Connect.
@@ -67,8 +69,10 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 - Every wallet gets **one free roast and one free hype** (server-side flags).
 - After that each show costs a **ticket**. Consumable packs: Top-Up 8 / $1.99,
   Opening Act 20 / $3.99, Headliner 60 / $9.99 (`AechTech.RoastMachine.tickets8/20/60`).
-- Economics: ~2.8¢ API cost per show (tight ~250-char bits on ElevenLabs
-  multilingual v2 at $0.10/1k chars + gpt-4o) → ~77–84% gross margin after Apple's 15%.
+- Economics (measured 2026-09-28): ~2.5¢ per show. Scripts average ~285 chars
+  (roast ~271, hype ~298) on ElevenLabs multilingual v2 at the published
+  $0.08/1k ≈ 2.3¢, plus gpt-4o ≈ 0.2¢. ElevenLabs plan: Creator, $22/month.
+  At today's pack prices that's ~82–88% gross margin after Apple's 15%.
 - The wallet id is a random UUID in the iCloud Keychain (`Backend.swift`), so
   tickets survive reinstalls. Transactions are finished only after the server credits them.
 
