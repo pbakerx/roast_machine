@@ -2,7 +2,7 @@ import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 import * as x509 from "npm:@peculiar/x509@1.12.3";
 import { b64decode, ecdsaVerify, signedBy, verifyAssertion, verifyAttestation, verifyTransaction } from "./apple.ts";
 import { APP_ATTEST_ROOT_B64, APPLE_ROOT_G3_B64 } from "./certs.ts";
-import { PERSONAS, PRODUCTS, systemPrompt } from "./personas.ts";
+import { cleanScript, PERSONAS, PRODUCTS, systemPrompt, VOICES } from "./personas.ts";
 
 Deno.test("Apple's P-384 roots verify their own signatures", () => {
   for (const b64 of [APP_ATTEST_ROOT_B64, APPLE_ROOT_G3_B64]) {
@@ -25,7 +25,7 @@ Deno.test("ecdsaVerify: P-256 and P-384, DER and raw signatures", async () => {
   }
 });
 
-Deno.test("every comedian has a voice and a prompt, for both flavors", () => {
+Deno.test("every comedian has a prompt, for both flavors", () => {
   const ids = ["classic","nature","ramsay","mom","shakespeare","disstrack","beautiful","fortune",
                "drill","linkedin","conspiracy","pickup","datingbio","pet"];
   assertEquals(Object.keys(PERSONAS).sort(), [...ids].sort());
@@ -33,6 +33,20 @@ Deno.test("every comedian has a voice and a prompt, for both flavors", () => {
     assert(systemPrompt(id, "roast").includes("PERSONA:"));
     assert(systemPrompt(id, "compliment").includes("HYPE"));
   }
+});
+
+Deno.test("one voice per flavor", () => {
+  assertEquals(VOICES.roast, "fIGaHjfrR8KmMy0vGEVJ");
+  assertEquals(VOICES.compliment, "542jzeOaLKbcpZhWfJDa");
+  assert(systemPrompt("drill", "compliment").includes("royalty"));
+});
+
+Deno.test("identity disclaimers are stripped", () => {
+  const bit = "Behold, Your Majesty, the reigning champion of retro cool and king of the disco!";
+  assertEquals(cleanScript(`I don't know who this is, but ${bit[0].toLowerCase()}${bit.slice(1)}`), bit);
+  assertEquals(cleanScript(`I'm sorry, I can't tell who this is. ${bit}`), bit);
+  assertEquals(cleanScript("I don't know who this is."), "");
+  assertEquals(cleanScript(bit), bit);
 });
 
 Deno.test("ticket packs", () => {

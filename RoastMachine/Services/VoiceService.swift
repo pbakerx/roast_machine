@@ -42,11 +42,12 @@ final class VoiceService: NSObject, ObservableObject {
     /// Mode id currently synthesizing/speaking its preview line, for UI spinners.
     @Published var previewingModeID: String?
 
-    /// Plays the mode's short preview line, pre-recorded into the app bundle so
-    /// auditioning voices costs nothing.
-    func preview(_ mode: RoastMode) async {
+    /// Plays the mode's short preview line in the current flavor's voice,
+    /// pre-recorded into the app bundle so auditioning costs nothing.
+    func preview(_ mode: RoastMode, flavor: RoastFlavor) async {
         if previewingModeID != nil { return }
-        guard let url = Bundle.main.url(forResource: "preview_\(mode.id)", withExtension: "mp3"),
+        let name = "preview_\(mode.id)_\(flavor == .compliment ? "hype" : "roast")"
+        guard let url = Bundle.main.url(forResource: name, withExtension: "mp3"),
               let data = try? Data(contentsOf: url) else { return }
         previewingModeID = mode.id
         play(data)

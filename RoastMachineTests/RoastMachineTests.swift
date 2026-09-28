@@ -27,7 +27,10 @@ final class CatalogTests: XCTestCase {
     func testEveryComedianHasABundledPreview() {
         let bundle = Bundle(for: StoreManager.self)
         for mode in RoastMode.all {
-            XCTAssertNotNil(bundle.url(forResource: "preview_\(mode.id)", withExtension: "mp3"), mode.id)
+            for flavor in ["roast", "hype"] {
+                XCTAssertNotNil(bundle.url(forResource: "preview_\(mode.id)_\(flavor)", withExtension: "mp3"),
+                                "\(mode.id) \(flavor)")
+            }
         }
     }
 

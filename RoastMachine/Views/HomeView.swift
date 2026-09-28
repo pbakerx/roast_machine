@@ -171,7 +171,7 @@ struct HomeView: View {
                     onSelect: { mode in selectedID = mode.id },
                     // Audition any voice — locked ones too; it sells the unlock.
                     onPreview: { mode in
-                        Task { await engine.voice.preview(mode) }
+                        Task { await engine.voice.preview(mode, flavor: flavor) }
                     },
                     previewingID: engine.voice.previewingModeID
                 )

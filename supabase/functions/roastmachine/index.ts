@@ -14,7 +14,7 @@ import postgres from "npm:postgres@3.4.5";
 import {
   b64decode, b64encode, BUNDLE_ID, sha256, verifyAssertion, verifyAttestation, verifyTransaction,
 } from "../_shared/apple.ts";
-import { type Flavor, PERSONAS, PRODUCTS, systemPrompt } from "../_shared/personas.ts";
+import { cleanScript, FALLBACK_VOICES, type Flavor, PERSONAS, PRODUCTS, systemPrompt, userPrompt, VOICES } from "../_shared/personas.ts";
 
 const env = (k: string, fallback = "") => Deno.env.get(k) ?? fallback;
 const sql = postgres(env("SUPABASE_DB_URL"), { prepare: false, max: 3 });
@@ -146,24 +146,18 @@ async function voice(caller: Caller, body: Record<string, string>): Promise<Resp
   const { showId } = body;
   if (!/^[0-9a-f-]{36}$/i.test(showId ?? "")) throw new HttpError(400, "bad_request");
   const [s] = await sql`
-    select mode_id, script from app_roastmachine.shows
+    select flavor, script from app_roastmachine.shows
     where id = ${showId} and wallet_id = ${caller.walletId} and voiced_at is null
       and refunded_at is null and script is not null and created_at > now() - interval '10 minutes'`;
   if (!s) throw new HttpError(404, "no_such_show");
 
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${PERSONAS[s.mode_id].voiceId}`, {
-    method: "POST",
-    headers: {
-      "xi-api-key": env("ROASTMACHINE_ELEVENLABS_API_KEY"),
-      "content-type": "application/json",
-      accept: "audio/mpeg",
-    },
-    body: JSON.stringify({
-      text: s.script,
-      model_id: "eleven_multilingual_v2",
-      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.6, use_speaker_boost: true },
-    }),
-  });
+  const flavor = s.flavor as Flavor;
+  let res = await speak(VOICES[flavor], s.script);
+  if ([401, 403, 404].includes(res.status)) {
+    // The chosen library voice was disabled or removed; don't fail the show.
+    console.error("voice unavailable, using fallback", VOICES[flavor], res.status, (await res.text()).slice(0, 200));
+    res = await speak(FALLBACK_VOICES[flavor], s.script);
+  }
   if (!res.ok) {
     console.error("elevenlabs", res.status, (await res.text()).slice(0, 300));
     const [refund] = await sql`select app_roastmachine.refund_show(${showId}) as w`;
@@ -172,6 +166,22 @@ async function voice(caller: Caller, body: Record<string, string>): Promise<Resp
   const audio = new Uint8Array(await res.arrayBuffer());
   await sql`update app_roastmachine.shows set voiced_at = now(), script = null where id = ${showId}`;
   return new Response(audio, { headers: { "content-type": "audio/mpeg" } });
+}
+
+function speak(voiceId: string, text: string): Promise<Response> {
+  return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: "POST",
+    headers: {
+      "xi-api-key": env("ROASTMACHINE_ELEVENLABS_API_KEY"),
+      "content-type": "application/json",
+      accept: "audio/mpeg",
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.6, use_speaker_boost: true },
+    }),
+  });
 }
 
 async function credit(caller: Caller, body: Record<string, string>): Promise<Response> {
@@ -197,33 +207,36 @@ async function credit(caller: Caller, body: Record<string, string>): Promise<Res
 // ---------- the writer ----------
 
 async function writeBit(modeId: string, flavor: Flavor, imageB64: string): Promise<string> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${env("ROASTMACHINE_OPENAI_API_KEY")}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o",
-      max_tokens: 160,
-      temperature: 0.9,
-      messages: [
-        { role: "system", content: systemPrompt(modeId, flavor) },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Here is the old photo. Give me the bit." },
-            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageB64}`, detail: "low" } },
-          ],
-        },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`openai ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const data = await res.json();
-  const text = (data.choices?.[0]?.message?.content ?? "").trim();
-  if (!text) throw new Error("empty script");
-  return text;
+  // One retry covers the occasional bare "I don't know who this is" reply.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${env("ROASTMACHINE_OPENAI_API_KEY")}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        max_tokens: 160,
+        temperature: 0.9,
+        messages: [
+          { role: "system", content: systemPrompt(modeId, flavor) },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: userPrompt(flavor) },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageB64}`, detail: "low" } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`openai ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const data = await res.json();
+    const text = cleanScript(data.choices?.[0]?.message?.content ?? "");
+    if (text) return text;
+  }
+  throw new Error("no usable script");
 }
 
 // ---------- entry ----------

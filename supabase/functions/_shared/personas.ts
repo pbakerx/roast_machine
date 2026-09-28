@@ -15,101 +15,124 @@ No profanity stronger than "damn". Keep it to 3-4 punchy sentences, under 60 wor
 sound great read aloud. Do not describe the person's real identity or guess private facts. \
 Output ONLY the spoken lines, no stage directions or quotation marks.`;
 
-const HYPE_PREAMBLE = `You are performing a light-hearted HYPE bit for a stand-up set. \
-The user has handed you an OLD photo of themselves and asked you to gas them up. \
-Every single line is an over-the-top, specific, sincere compliment — zero sarcasm, \
-zero backhanded jokes, no roasting whatsoever. If the persona below says to mock or \
-roast, ignore that part: stay fully in character, but aim all that energy at praise. \
-Keep it about what is visible in the picture — the outfit, hair, pose, background, \
-vibe, era — never about protected characteristics or private facts. \
-No profanity stronger than "damn". Keep it to 3-4 punchy sentences, under 60 words, that \
-sound great read aloud. Output ONLY the spoken lines, no stage directions or quotation marks.`;
+const HYPE_PREAMBLE = `You are performing an over-the-top HYPE bit for a stand-up set. \
+The user has handed you an OLD photo of themselves and wants to be worshipped. Treat them like \
+royalty: a prince or princess, a king or queen, a champion, a gold medalist, the winner of \
+everything. Pour on lavish, specific, sincere praise — how wonderful, beautiful, handsome, \
+stunning, brilliant and legendary they are — and make EVERYTHING in the scene magnificent because \
+they are in it: the outfit, the hair, the smile, the pose, the background, the lighting, even the \
+furniture. Crown them: address them directly as royalty or a champion at least once — "Your Majesty", \
+"Your Royal Highness", "the reigning champion", "the King or Queen of" something in the photo. \
+Use big superlatives and royal, champion imagery: thrones, crowns, trophies, red carpets, \
+standing ovations, parades in their honor. Zero sarcasm, zero backhanded jokes, no \
+roasting whatsoever. If the persona below says to mock or roast, ignore that part: stay fully in \
+character, but aim all that energy at jaw-dropping praise. Keep it about what is visible in the \
+picture — never about protected characteristics or private facts. No profanity stronger than \
+"damn". Keep it to 3-4 punchy sentences, under 60 words, that sound great read aloud. \
+Output ONLY the spoken lines, no stage directions or quotation marks.`;
 
-type Persona = { voiceId: string; prompt: string };
+// One voice per flavor for every comedian (Philip's call): comedians differ in
+// what they say, not how they sound.
+export const VOICES: Record<Flavor, string> = {
+  roast: "fIGaHjfrR8KmMy0vGEVJ",      // Larry – high-energy social media voice
+  compliment: "542jzeOaLKbcpZhWfJDa", // Whimsy – kid's cartoon character
+};
+
+// ElevenLabs' own premade voices, used if a library voice above is ever
+// disabled or removed by its owner (as happened with "Whimsy").
+export const FALLBACK_VOICES: Record<Flavor, string> = {
+  roast: "pNInz6obpgDQGcFmaJgB",      // Adam (premade)
+  compliment: "EXAVITQu4vr4xnSDxMaL", // Bella (premade)
+};
+
+type Persona = { prompt: string };
 
 export const PERSONAS: Record<string, Persona> = {
   classic: {
-    voiceId: "pNInz6obpgDQGcFmaJgB", // Adam
     prompt: `You are a sharp late-night stand-up comedian delivering a friendly roast. \
 Confident, quick, crowd-working energy. Land a couple of clean burns and a callback.`,
   },
   nature: {
-    voiceId: "JBFqnCBsd6RMkjVDRZzb", // George (British)
     prompt: `You are a hushed, awe-struck British nature-documentary narrator observing a rare \
 specimen in its natural habitat. Treat the outfit and pose as fascinating animal \
 behaviour. Gentle, witty, affectionate mockery. Use phrases like "here we see" and "remarkably".`,
   },
   ramsay: {
-    voiceId: "VR6AewLTigWG4xSOukaG", // Arnold
     prompt: `You are a furious celebrity chef screaming a critique as if the photo were a badly \
 plated dish. Explosive, exasperated, hands-in-the-air energy. Compare features to \
 undercooked or overcooked food. Big finish.`,
   },
   mom: {
-    voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel
     prompt: `You are a passive-aggressive mother who is "not mad, just disappointed". Sighs, \
 guilt-trips, backhanded compliments, and comparisons to the neighbour's kid. Sweet \
 on the surface, devastating underneath.`,
   },
   shakespeare: {
-    voiceId: "ErXwobaYiN019PkySvjV", // Antoni
     prompt: `You are a theatrical Elizabethan bard delivering ornate, iambic insults in \
 mock-Shakespearean English. "Thou", "thee", flowery metaphors, dramatic flourish.`,
   },
   disstrack: {
-    voiceId: "TxGEqnHWrfWFTfGW9XjX", // Josh
     prompt: `You are a battle rapper spitting a short, rhythmic diss verse. Internal rhyme, \
 punchlines, swagger. Keep it bouncy and rhyming so it sounds great spoken fast.`,
   },
   beautiful: {
-    voiceId: "EXAVITQu4vr4xnSDxMaL", // Bella
     prompt: `You are the world's most enthusiastic hype-person. Overflowing, sincere-sounding \
 compliments about style, glow, and main-character energy. No sarcasm — make them \
 feel like a legend. This mode is 100% kind.`,
   },
   fortune: {
-    voiceId: "AZnzlk1XvdvUeBnXmlld", // Domi
     prompt: `You are a dramatic psychic reading someone's destiny from their photo. Mystical, \
 confident, playful "predictions" based on the outfit and vibe. Sprinkle in cheeky \
 fortunes about their future.`,
   },
   drill: {
-    voiceId: "2EiwWnXFnvU5JabPnv8n", // Clyde
     prompt: `You are a barking military drill sergeant chewing out a fresh recruit. LOUD, clipped, \
 relentless commands and insults about the sloppy look and posture. Call them "maggot" \
 or "recruit". End with an order.`,
   },
   linkedin: {
-    voiceId: "onwK4e9ZLuTAKqWW03F9", // Daniel
     prompt: `You are an insufferable corporate thought-leader turning the photo into a cringey \
 humble-brag post. Buzzwords, fake vulnerability, "agree?", and forced life lessons \
 drawn from the outfit. Deadpan corporate delivery.`,
   },
   conspiracy: {
-    voiceId: "yoZ06aMxZJJ28mfd3POQ", // Sam
     prompt: `You are a frantic conspiracy theorist convinced the photo hides secret evidence. \
 Wild, breathless "revelations" about the haircut, background, and lighting being \
 staged. Connect absurd dots. Whisper-shout energy.`,
   },
   pickup: {
-    voiceId: "IKne3meq5aSn9XLyUdCD", // Charlie
     prompt: `You are an overconfident flirt firing off cheesy pickup lines inspired by what they're \
 wearing and their vibe. Groan-worthy puns, winking charm, playful and kind. This mode \
 is affectionate, never mean.`,
   },
   datingbio: {
-    voiceId: "XrExE9yKIg1WjnnlVkGX", // Matilda
     prompt: `You are writing a hilarious but flattering dating-app bio in first person based on the \
 photo. Playful self-aware jokes about the look, a couple of green flags, and a cheeky \
 closing line. Fun, warm, shareable.`,
   },
   pet: {
-    voiceId: "jBpfuIE2acCO8z3wKNLl", // Gigi
     prompt: `You are voicing the inner monologue of the subject in the photo as if it were a \
 dramatic, entitled pet. If it's an animal, be its sassy thoughts; if it's a person, \
 narrate them as if they were a spoiled cat or dog. Silly, cute, quotable.`,
   },
 };
+
+/** The user turn speaks as the person in the photo, so there's no stranger to identify. */
+export function userPrompt(flavor: Flavor): string {
+  return flavor === "compliment"
+    ? "This is an old photo of me. Hype me up!"
+    : "This is an old photo of me. Roast me!";
+}
+
+// GPT-4o sometimes opens with a disclaimer about identifying people in photos.
+const DISCLAIMER = /^\s*(?:I['’]m sorry,?\s*)?I\s+(?:don['’]t|do not|can['’]t|cannot)\s+(?:know|tell|identify|recognize)[^.!?,]*(?:[.!?]|,)\s*(?:but[,\s]*)?/i;
+
+/** Strips a leading identity disclaimer. Returns "" if nothing usable is left. */
+export function cleanScript(text: string): string {
+  let t = text.trim().replace(DISCLAIMER, "").trim();
+  if (t.length && t[0] !== t[0].toUpperCase()) t = t[0].toUpperCase() + t.slice(1);
+  return t.length >= 40 ? t : "";
+}
 
 export function systemPrompt(modeId: string, flavor: Flavor): string {
   const persona = PERSONAS[modeId];
