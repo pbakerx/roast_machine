@@ -25,7 +25,7 @@ enum VideoExporter {
     static let renderSize = CGSize(width: 1080, height: 1920)
 
     /// Renders photo + audio + badge into an .mp4 and returns its URL.
-    static func export(image: UIImage, audio: Data, mode: RoastMode) async throws -> URL {
+    static func export(image: UIImage, audio: Data, mode: RoastMode, flavor: RoastFlavor) async throws -> URL {
         let tmp = FileManager.default.temporaryDirectory
         let audioURL = tmp.appendingPathComponent("roast_export_audio.mp3")
         let videoURL = tmp.appendingPathComponent("roast_\(mode.id).mp4")
@@ -85,7 +85,7 @@ enum VideoExporter {
         writer.startSession(atSourceTime: .zero)
 
         // the same frame at the start and the end so the video spans the audio
-        guard let buffer = pixelBuffer(from: renderFrame(image: image, mode: mode)) else {
+        guard let buffer = pixelBuffer(from: renderFrame(image: image, mode: mode, flavor: flavor)) else {
             throw ExportError.writerSetup
         }
         for time in [0, seconds] {
@@ -121,7 +121,7 @@ enum VideoExporter {
 
     // MARK: - Frame rendering
 
-    private static func renderFrame(image: UIImage, mode: RoastMode) -> UIImage {
+    private static func renderFrame(image: UIImage, mode: RoastMode, flavor: RoastFlavor) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: renderSize)
         return renderer.image { ctx in
             // photo, aspect-filled
@@ -146,7 +146,7 @@ enum VideoExporter {
 
 
             // badge: mode + branding
-            let badge = "\(mode.theme.scene)  •  \(mode.title)"
+            let badge = "\(mode.theme.scene)  •  \(mode.title(for: flavor))"
             badge.draw(at: CGPoint(x: 56, y: renderSize.height - 210), withAttributes: [
                 .font: UIFont.systemFont(ofSize: 38, weight: .heavy),
                 .foregroundColor: UIColor.white

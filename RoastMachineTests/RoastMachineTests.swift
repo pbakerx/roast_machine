@@ -141,3 +141,18 @@ final class WalletGateTests: XCTestCase {
         XCTAssertFalse(store.canRun(.roast))
     }
 }
+
+final class HypeTitleTests: XCTestCase {
+
+    func testBurnyNamesSwapOnHype() {
+        XCTAssertEqual(RoastMode.classic.title(for: .roast), "Classic Roast")
+        XCTAssertEqual(RoastMode.classic.title(for: .compliment), "Classic Toast")
+        let diss = try! XCTUnwrap(RoastMode.all.first { $0.id == "disstrack" })
+        XCTAssertEqual(diss.title(for: .compliment), "Hype Track")
+    }
+
+    func testHypeNamesOnlyCoverRealComedians() {
+        let ids = Set(RoastMode.all.map(\.id))
+        XCTAssertTrue(Set(RoastMode.hypeTitles.keys).isSubset(of: ids))
+    }
+}

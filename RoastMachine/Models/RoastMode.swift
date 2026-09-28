@@ -23,6 +23,21 @@ struct RoastMode: Identifiable, Hashable {
     let systemImage: String
     let tint: Color
 
+    /// The name to show for a run. A few comedians have burn-y names that read
+    /// wrong on a HYPE show, so they get a hype name; the rest work both ways.
+    func title(for flavor: RoastFlavor) -> String {
+        guard flavor == .compliment else { return title }
+        return Self.hypeTitles[id] ?? title
+    }
+
+    static let hypeTitles: [String: String] = [
+        "classic": "Classic Toast",
+        "ramsay": "Chef's Kiss",
+        "mom": "Proud Mom",
+        "disstrack": "Hype Track",
+        "drill": "Proud Sergeant",
+    ]
+
     static func == (lhs: RoastMode, rhs: RoastMode) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

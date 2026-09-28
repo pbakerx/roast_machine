@@ -121,7 +121,7 @@ struct ResultView: View {
                             .font(.system(size: 10, weight: .heavy, design: .rounded))
                             .tracking(2)
                             .foregroundStyle(mode.theme.primary)
-                        Text(mode.title)
+                        Text(mode.title(for: engine.flavor))
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                     }
@@ -358,7 +358,7 @@ struct ResultView: View {
         Task {
             defer { exportingVideo = false }
             exportedVideoURL = try? await VideoExporter.export(
-                image: image, audio: audio, mode: mode)
+                image: image, audio: audio, mode: mode, flavor: engine.flavor)
             showShare = true
         }
     }

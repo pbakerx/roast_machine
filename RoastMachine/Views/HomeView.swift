@@ -240,7 +240,7 @@ struct HomeView: View {
                 .font(.system(size: 12, weight: .heavy, design: .rounded))
                 .tracking(3)
                 .foregroundStyle(theme.primary)
-            Text(selectedMode.title)
+            Text(selectedMode.title(for: flavor))
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
         }
