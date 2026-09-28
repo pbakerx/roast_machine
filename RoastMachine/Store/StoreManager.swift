@@ -65,9 +65,18 @@ final class StoreManager: ObservableObject {
     func start() async {
 #if DEBUG && targetEnvironment(simulator)
         // Test rig: `SIMCTL_CHILD_RM_DEMO_SOLDOUT=1` starts with an empty wallet
-        // so the sold-out roasts can be heard without touching the server.
-        if ProcessInfo.processInfo.environment["RM_DEMO_SOLDOUT"] == "1" {
-            wallet = Wallet(tickets: 0, freeRoast: false, freeHype: false)
+        // so the sold-out roasts can be heard without touching the server;
+        // `RM_DEMO_WALLET=<tickets>,<freeRoast 0|1>,<freeHype 0|1>` sets any
+        // balance (e.g. `0,1,1` for a fresh install's screenshots).
+        let env = ProcessInfo.processInfo.environment
+        var demoWallet: Wallet?
+        if env["RM_DEMO_SOLDOUT"] == "1" {
+            demoWallet = Wallet(tickets: 0, freeRoast: false, freeHype: false)
+        } else if let parts = env["RM_DEMO_WALLET"]?.split(separator: ",").compactMap({ Int($0) }), parts.count == 3 {
+            demoWallet = Wallet(tickets: parts[0], freeRoast: parts[1] == 1, freeHype: parts[2] == 1)
+        }
+        if let demoWallet {
+            wallet = demoWallet
             await loadProducts()
             return
         }

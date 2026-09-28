@@ -25,7 +25,7 @@ CAPTIONS = {
     "03_stage_hype":    ("OR GET HYPED",          "Flip the switch for over-the-top compliments."),
     "04_result_hype":   ("ZERO BURNS. ALL LOVE.", "Shakespeare thinks you're a legend."),
     "05_stage_mom":     ("PICK YOUR POISON",      "Angry Chef, Disappointed Mom, Shakespeare & more."),
-    "06_paywall":       ("ONE PRICE. FOREVER.",   "Your first roast and first hype are free."),
+    "06_voice_picker":  ("PICK YOUR VOICE",       "A hype man, a pirate, a bee & more."),
 }
 
 BG_TOP = (18, 10, 20)        # deep violet-black

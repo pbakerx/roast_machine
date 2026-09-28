@@ -122,8 +122,9 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
   camera and `simctl addmedia` crashes on Xcode 26.6); `SIMCTL_CHILD_RM_DEMO_UNLOCK=1`
   shows the paid experience. Also `RM_DEMO_MODE`, `RM_DEMO_FLAVOR`, `RM_DEMO_AUTORUN=1`
   (accept consent + fire the shutter), `RM_DEMO_BOXOFFICE=1`, `RM_DEMO_VOICE=<key>`,
-  `RM_DEMO_VOICEPICKER=1`, and `RM_DEMO_SOLDOUT=1` (empty wallet: with AUTORUN it
-  plays the next sold-out roast).
+  `RM_DEMO_VOICEPICKER=1`, `RM_DEMO_SOLDOUT=1` (empty wallet: with AUTORUN it
+  plays the next sold-out roast), and `RM_DEMO_WALLET=<tickets>,<0|1>,<0|1>`
+  (any balance; `0,1,1` shows the fresh-install "on the house" banner).
 
 ## Art pipeline
 Backdrops (`Assets.xcassets/Backdrops/backdrop_<modeid>`) and the app icon are
