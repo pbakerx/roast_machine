@@ -17,3 +17,7 @@ Secrets.xcconfig
 # App packaging
 *.ipa
 *.xcarchive
+
+# macOS AppleDouble sidecars — SMB artifact
+._*
+.smbdelete*

@@ -25,9 +25,12 @@ art and the emoji sticker stream as not useful; don't reintroduce them.
 - `DATABASE.md` and `supabase-multi-app-handoff.md` sit beside the repo on the
   NAS but are excluded from git (`.git/info/exclude`). They describe the shared
   Supabase project; never commit them to this public repo.
-- Git on the NAS share: if git says "another git process seems to be running",
-  move the stale `.lock` file into `.git/trash/` (rename works where delete may
-  not). See `00. MasterTechNotesForClaude/MOVING-PROJECTS-RUNBOOK.md`.
+- NAS rules live in the Vault's `/Volumes/Home/02. Project Files/CLAUDE.md` and
+  `00. Technical Notes/Moving a Project to the NAS.md`: `core.fileMode false`
+  (set), `._*`/`.smbdelete*` ignored, `git update-index --refresh` before a pull
+  that complains about local changes, and one Mac at a time. If git says
+  "another git process seems to be running", move the stale `.lock` into
+  `.git/trash/`.
 
 ## Build, run, test
 1. Open `RoastMachine.xcodeproj` (Xcode 26, objectVersion 70, iOS 18.5 target, Swift 5). iPhone-only, portrait-only.
